@@ -81,6 +81,21 @@ class EditorSourcesTest(unittest.TestCase):
         self.assertIn('float spring =', physics)
         self.assertIn('float drag =', physics)
 
+    def test_isometric_camera_preview_presets(self):
+        camera = source('client/gui/PreviewCamera.java')
+        editor = source('client/gui/AvatarEditorScreen.java')
+        self.assertIn('ISOMETRIC_ELEVATION = 35.2643897F', camera)
+        for preset in ('ISOMETRIC_LEFT', 'ISOMETRIC_RIGHT',
+                       'FRONT', 'SIDE', 'BACK', 'FREE'):
+            self.assertIn(preset, camera)
+        self.assertIn('Axis.YP.rotationDegrees(yaw())', camera)
+        self.assertIn('Axis.XP.rotationDegrees(pitch())', camera)
+        self.assertIn('camera.quaternion()', editor)
+        self.assertIn('camera.nextPreset()', editor)
+        self.assertIn('camera.drag(dragX, dragY)', editor)
+        self.assertIn('GLFW.GLFW_KEY_I', editor)
+        self.assertIn('camera.resetIsometric()', editor)
+
     def test_local_only_scope(self):
         self.assertIn('ClientTarget.appliesTo(player)',
                       source('client/model/ModularPlayerModel.java'))

@@ -134,3 +134,17 @@ Goal: **use Jenny's chest silhouette as an artistic reference without reusing th
 References for implementation philosophy:
 - [Unity deformable mesh and morph targets](https://docs.unity.cn/6000.1/Documentation/Manual/mesh-data-deformable-meshes.html)
 - [VRM SpringBone 1.0 spec](https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_springBone-1.0/README.md)
+
+
+## v0.7: Isometric preview camera
+
+The Character Editor opened by **P** now starts with a **3/4 isometric-style** preview angle. The new **View** button in the center preview pane cycles through **ISO Left, ISO Right, Front, Side and Back**.
+
+- Isometric angle: **yaw ±45°**, **elevation 35.264°**, based on standard isometric axis rotations. Uses the existing Minecraft 1.20.1 `InventoryScreen.renderEntityInInventory` GUI rendering path.
+- Drag the preview with the left mouse button to switch to **Free** camera, rotating yaw and pitch independently. Pitch is clamped to keep the player visible.
+- Scroll to zoom as before.
+- Press **I** while this screen is open to return instantly to ISO Left.
+- These are **editor-only camera poses**. Player rotation, world view, physics, model proportions, wardrobe and persisted avatar profiles remain unchanged.
+- No offscreen image exporter and no separate custom projection-matrix override is included. This is a camera-angle trial; exact pixel-perfect orthographic render fidelity still requires an in-game visual check.
+
+Modify: `src/main/java/com/susu609/modularplayer/client/gui/PreviewCamera.java` for camera rotations and `AvatarEditorScreen.java` for the view selector/UI.

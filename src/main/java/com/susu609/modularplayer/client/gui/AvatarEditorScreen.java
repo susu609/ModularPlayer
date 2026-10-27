@@ -1,6 +1,5 @@
 package com.susu609.modularplayer.client.gui;
 
-import com.mojang.math.Axis;
 import com.susu609.modularplayer.appearance.Appearance;
 import com.susu609.modularplayer.appearance.BodyDimension;
 import com.susu609.modularplayer.appearance.BreastShapeProfile;
@@ -11,7 +10,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
-import org.joml.Quaternionf;
+import org.lwjgl.glfw.GLFW;
 
 import static com.susu609.modularplayer.appearance.BodyDimension.Group.*;
 
@@ -30,7 +29,7 @@ public final class AvatarEditorScreen extends Screen {
     private int presetIndex = -1;
     private String guiPageLabel = "";
     private boolean previewDragging;
-    private float rotation;
+    private final PreviewCamera camera = new PreviewCamera();
     private int zoom = 0;
     private int leftWidth;
     private int rightWidth;
@@ -52,6 +51,17 @@ public final class AvatarEditorScreen extends Screen {
         previewLeft = leftWidth + 10;
         previewRight = rightX - 6;
         previewX = (previewLeft + previewRight) / 2;
+
+        // Fixed camera presets stay inside the center preview pane.
+        int previewWidth = previewRight - previewLeft;
+        if (previewWidth >= 85) {
+            int viewButtonWidth = Math.min(144, previewWidth - 8);
+            addRenderableWidget(Button.builder(
+                    Component.literal("View: " + camera.label()), button -> {
+                        camera.nextPreset();
+                        rebuildWidgets();
+                    }).bounds(previewX - viewButtonWidth / 2, 31, viewButtonWidth, 20).build());
+        }
 
         for (int i = 0; i < TABS.length; i++) {
             final BodyDimension.Group tab = TABS[i];
@@ -228,14 +238,11 @@ public final class AvatarEditorScreen extends Screen {
         if (minecraft != null && minecraft.player != null && previewRight - previewLeft > 50) {
             int size = Math.max(15, Math.min(52, (height - 84) / 3)) + zoom;
             int bottom = height - 53;
-            // Same entity used by the world renderer: live geometry and fitted clothing.
-            Quaternionf view = Axis.ZP.rotationDegrees(180.0F)
-                    .mul(Axis.XP.rotationDegrees(10.0F))
-                    .mul(Axis.YP.rotationDegrees(rotation));
+            // A camera-only isometric pose preserves our exact live world avatar.
             InventoryScreen.renderEntityInInventory(gui, previewX, bottom, size,
-                    view, null, minecraft.player);
+                    camera.quaternion(), null, minecraft.player);
         }
-        gui.drawCenteredString(font, "Drag to rotate / Scroll to zoom", previewX,
+        gui.drawCenteredString(font, "Drag: rotate | Scroll: zoom | I: ISO", previewX,
                 height - 26, 0xBAC9D4);
         gui.drawCenteredString(font, "Visual model only - gameplay size unchanged", width / 2,
                 height - 9, 0x93A9B5);
@@ -259,7 +266,7 @@ public final class AvatarEditorScreen extends Screen {
     public boolean mouseDragged(double mouseX, double mouseY, int button,
                                 double dragX, double dragY) {
         if (previewDragging && button == 0) {
-            rotation = (rotation + (float) dragX * 1.15F) % 360F;
+            camera.drag(dragX, dragY);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -281,6 +288,17 @@ public final class AvatarEditorScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(x, y, amount);
+    }
+
+    /** I restores the default isometric view without modifying avatar settings. */
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_I) {
+            camera.resetIsometric();
+            rebuildWidgets();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override

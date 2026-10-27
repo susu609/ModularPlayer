@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.susu609.modularplayer.appearance.Appearance;
 import com.susu609.modularplayer.appearance.BodyDimension;
 import com.susu609.modularplayer.client.AppearanceState;
+import com.susu609.modularplayer.client.AnatomyMotion;
 import com.susu609.modularplayer.client.ClientTarget;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -79,7 +80,7 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
         }
         renderScaled(part(shape, name, source), source, pose,
                 (float) AppearanceState.get(x), (float) AppearanceState.get(y),
-                (float) AppearanceState.get(z), offsetX, 0F,
+                (float) AppearanceState.get(z), offsetX, 0F, 0F,
                 vertices, light, overlay, red, green, blue, alpha);
     }
 
@@ -88,16 +89,10 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
         float volume = (float) AppearanceState.get(glutes ? BUTTOCK_VOLUME : CHEST_VOLUME);
         if (volume <= 0.001F) return;
         Appearance.Shape shape = AppearanceState.current().torso();
-        float width = (float) AppearanceState.get(glutes ? HIP_WIDTH : TORSO_WIDTH);
-        float height = (float) AppearanceState.get(TORSO_HEIGHT);
-        // Neutral volume is zero: the extra cubes are omitted, not flattened to
-        // produce z-fighting against the base torso.
-        for (String name : glutes
-                ? new String[]{"glute_left", "glute_right"}
-                : new String[]{"chest_left", "chest_right"}) {
-            renderScaled(part(shape, name, body), body, pose,
-                    width, height, Math.max(0.05F, volume), 0F,
-                    curveOffset(glutes, volume), vertices, light, overlay, red, green, blue, alpha);
+        // Neutral volume is zero: extra meshes are fully omitted.
+        for (String name : anatomyNames(glutes)) {
+            renderAnatomy(shape, name, glutes, volume, 1F, pose,
+                    vertices, light, overlay, red, green, blue, alpha);
         }
     }
 
@@ -110,11 +105,11 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
 
     /** Scale a bone about its pivot, not about the global player origin. */
     private static void renderScaled(ModelPart target, ModelPart source, PoseStack pose,
-                                     float x, float y, float z, float offsetX, float offsetZ,
-                                     VertexConsumer vertices, int light, int overlay,
+                                     float x, float y, float z, float offsetX, float offsetY,
+                                     float offsetZ, VertexConsumer vertices, int light, int overlay,
                                      float red, float green, float blue, float alpha) {
         pose.pushPose();
-        pose.translate(offsetX, 0, offsetZ);
+        pose.translate(offsetX, offsetY, offsetZ);
         pose.translate(source.x / 16F, source.y / 16F, source.z / 16F);
         pose.scale(x, y, z);
         pose.translate(-source.x / 16F, -source.y / 16F, -source.z / 16F);
@@ -183,9 +178,47 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
         ResourceLocation location = new ResourceLocation(ID, "textures/" + texture);
         renderScaled(part(shape, name, source), source, pose,
                 (float) AppearanceState.get(x), (float) AppearanceState.get(y),
-                (float) AppearanceState.get(z), hip, 0F,
+                (float) AppearanceState.get(z), hip, 0F, 0F,
                 buffers.getBuffer(RenderType.entityCutoutNoCull(location)),
                 light, OverlayTexture.NO_OVERLAY, 1F, 1F, 1F, 1F);
+    }
+
+    private static String[] anatomyNames(boolean glutes) {
+        return glutes ? new String[]{"glute_left", "glute_right"}
+                      : new String[]{"chest_left", "chest_right"};
+    }
+
+    /**
+     * Shared placement for skin geometry and garment geometry, so clothing
+     * follows every shape slider and optional spring movement.
+     */
+    private void renderAnatomy(Appearance.Shape shape, String name, boolean glutes,
+                               float projection, float clothingMultiplier, PoseStack pose,
+                               VertexConsumer vertices, int light, int overlay,
+                               float red, float green, float blue, float alpha) {
+        float anatomicalWidth = (float) AppearanceState.get(glutes ? BUTTOCK_WIDTH : CHEST_WIDTH);
+        float anatomicalHeight = (float) AppearanceState.get(glutes ? BUTTOCK_HEIGHT : CHEST_HEIGHT);
+        float width = (float) AppearanceState.get(glutes ? HIP_WIDTH : TORSO_WIDTH)
+                * anatomicalWidth;
+        float height = (float) AppearanceState.get(TORSO_HEIGHT) * anatomicalHeight;
+        float depth = Math.max(.05F, projection) * clothingMultiplier;
+
+        float spacing = (float) AppearanceState.get(glutes ? BUTTOCK_SEPARATION : CHEST_SEPARATION);
+        float horizontal = (name.endsWith("_left") ? -1F : 1F) * spacing / 16F;
+        float vertical = -(float) AppearanceState.get(
+                glutes ? BUTTOCK_POSITION : CHEST_POSITION) / 16F;
+
+        if (!glutes) {
+            // Physics is optional and render-only; garment overlays receive
+            // the exact same transformations as exposed body geometry.
+            horizontal += AnatomyMotion.lateralPixels() / 16F;
+            vertical -= AnatomyMotion.verticalPixels() / 16F;
+        }
+
+        renderScaled(part(shape, name, body), body, pose,
+                width, height, depth, horizontal, vertical,
+                curveOffset(glutes, depth), vertices, light, overlay,
+                red, green, blue, alpha);
     }
 
     /** Keep the front/back protrusion anchored at the adjusted torso surface. */
@@ -197,15 +230,10 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
     private void garmentCurve(Appearance.Shape shape, boolean glutes, float volume,
                               PoseStack pose, MultiBufferSource buffers, int light, String texture) {
         ResourceLocation location = new ResourceLocation(ID, "textures/" + texture);
-        float width = (float) AppearanceState.get(glutes ? HIP_WIDTH : TORSO_WIDTH);
-        float height = (float) AppearanceState.get(TORSO_HEIGHT);
-        for (String name : glutes
-                ? new String[]{"glute_left", "glute_right"}
-                : new String[]{"chest_left", "chest_right"}) {
-            renderScaled(part(shape, name, body), body, pose, width, height,
-                    Math.max(.05F, volume) * 1.04F, 0F,
-                    curveOffset(glutes, volume * 1.04F), buffers.getBuffer(RenderType.entityCutoutNoCull(location)),
-                    light, OverlayTexture.NO_OVERLAY, 1F, 1F, 1F, 1F);
+        for (String name : anatomyNames(glutes)) {
+            renderAnatomy(shape, name, glutes, volume, 1.04F, pose,
+                    buffers.getBuffer(RenderType.entityCutoutNoCull(location)), light,
+                    OverlayTexture.NO_OVERLAY, 1F, 1F, 1F, 1F);
         }
     }
 }

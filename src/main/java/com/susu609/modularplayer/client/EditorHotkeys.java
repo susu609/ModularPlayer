@@ -49,6 +49,7 @@ public final class EditorHotkeys {
         public static void tick(TickEvent.ClientTickEvent event) {
             if (event.phase != TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getInstance();
+            AnatomyMotion.tick(mc.player);
             if (mc.player == null || mc.screen != null) return;
             if (OPEN.consumeClick()) {
                 mc.setScreen(new AvatarEditorScreen());

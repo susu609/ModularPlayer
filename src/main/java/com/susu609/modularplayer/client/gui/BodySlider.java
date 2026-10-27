@@ -5,7 +5,7 @@ import com.susu609.modularplayer.client.AppearanceState;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.network.chat.Component;
 
-/** Slider directly updates the live preview; disk writes happen only on Save. */
+/** Slider updates world + 3D preview immediately, saves only on user confirmation. */
 public final class BodySlider extends AbstractSliderButton {
     private final BodyDimension dimension;
 
@@ -25,8 +25,7 @@ public final class BodySlider extends AbstractSliderButton {
 
     @Override
     protected void updateMessage() {
-        setMessage(Component.literal(dimension.label() + ": "
-                + Math.round((dimension.min()
-                + value * (dimension.max() - dimension.min())) * 100) + "%"));
+        double actual = dimension.min() + value * (dimension.max() - dimension.min());
+        setMessage(Component.literal(dimension.label() + ": " + dimension.format(actual)));
     }
 }

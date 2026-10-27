@@ -52,4 +52,15 @@ public enum BodyDimension {
     }
 
     public String configName() { return name().toLowerCase(java.util.Locale.ROOT); }
+
+    /** Sliders show actual pixel offsets rather than misleading percentages. */
+    public String format(double value) {
+        if (name().endsWith("_SEPARATION") || name().endsWith("_POSITION")) {
+            return String.format(java.util.Locale.ROOT, "%.1f px", value);
+        }
+        if (this == CHEST_SWAY) {
+            return Math.round(value * 100) + "%";
+        }
+        return String.format(java.util.Locale.ROOT, "%.2fx", value);
+    }
 }

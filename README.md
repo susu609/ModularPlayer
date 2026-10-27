@@ -6,7 +6,7 @@
 
 Press **P** while playing to open the **Modular Player** editor. Bedrock-inspired layout:
 
-- **Left panel:** Head, Torso, Arms, Legs, Shape, Clothes
+- **Left panel:** Head, Torso, Arms, Legs, Chest, Hips, Buttocks, Clothes
 - **Center:** Preview of the *current local player* in 3D, drag with mouse to rotate, scroll to zoom
 - **Right panel:** Change mesh preset, shape parameters, clothes
 - **Save:** Apply changes and persist to Forge client config
@@ -15,7 +15,7 @@ Press **P** while playing to open the **Modular Player** editor. Bedrock-inspire
 
 Controls preview the same player renderer as the world. If your UI is very small, increase game window size or lower GUI Scale in Minecraft settings.
 
-### Adjustable properties (15 sliders)
+### Adjustable properties (24 sliders)
 
 | Editor tab | Independent parameters |
 |---|---|
@@ -23,7 +23,9 @@ Controls preview the same player renderer as the world. If your UI is very small
 | Torso | width, length, depth |
 | Arms | width, length, depth |
 | Legs | width, length, depth |
-| Shape | chest/breast projection, buttock projection, hip width |
+| Chest | projection, separation (px), position (px), width, height, optional soft-motion strength |
+| Hips | hip width |
+| Buttocks | projection, separation (px), position (px), width, height |
 | Clothes | hat, shirt, pants, footwear; separate 64x64 texture atlases |
 
 **Individual mesh presets** Steve / Wide can be chosen for Head, Torso, Arms and Legs independently. Chest and buttock volume default to **0** (Steve baseline) and are separate cubic meshes attached to the torso animation pivot; there are two independent left/right cubes within each anatomical group, driven by a common parameter. Shape protrusions use the clothing atlas when a top/bottom is equipped.
@@ -82,3 +84,17 @@ CI is configured in `.github/workflows/compile.yml` to compile with Java 17. API
 3. Clothing Registry and garments with matching geometry, layering, offsets, UV mapping and anti-clipping.
 4. Profiles, 3D thumbnail selection, presets, localized UI and import/export.
 5. Multiplayer appearance sync, first-person arms, armor/elytra/cape integration and third-party animation support.
+
+
+## Gender Mod inspiration (v0.4)
+
+Reference: [Female Gender Mod](https://github.com/FemaleGenderMod/FemaleGenderMod) (LGPL-3.0), especially its design of **two separate anatomy pieces** with adjustable separation, vertical positioning and depth, player-specific controls, and optional motion. We did not copy its source code, models, textures, or binaries. These controls and the small spring-damper are written independently for ModularPlayer.
+
+- Chest and buttock groups remain independent geometry parts (no global model height change).
+- Default = flat Steve with chest/buttock projection 0 and physics disabled.
+- Each skin/clothing overlay is passed through the **same** geometry transformation to stay aligned.
+- `CHEST_SWAY` is client-local, defaults to zero, updates once per client tick. It does not move bones used for hitboxes.
+- Bedrock-inspired screen now has dedicated Chest, Hips and Buttocks tabs so the controls stay visible.
+- Optional physics and garment fitting are an alpha prototype. Character animation, armor clipping, UV stretching, renderer conflicts, and movement feel should be checked in a running client.
+
+Reference mod specifically does not aim to remodel vanilla hips or buttocks; those features are designed independently here.

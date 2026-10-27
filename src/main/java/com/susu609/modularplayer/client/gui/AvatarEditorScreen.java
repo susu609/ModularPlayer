@@ -18,9 +18,11 @@ import static com.susu609.modularplayer.appearance.BodyDimension.Group.*;
  * parameter sliders and clothes at right. In-game, no external website required.
  */
 public final class AvatarEditorScreen extends Screen {
-    private static final BodyDimension.Group[] TABS = { HEAD, TORSO, ARMS, LEGS, SHAPE, OUTFIT };
-    private static final String[] TAB_NAMES = { "Head", "Torso", "Arms", "Legs", "Shape", "Clothes" };
-    private BodyDimension.Group selected = SHAPE;
+    private static final BodyDimension.Group[] TABS =
+            { HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, OUTFIT };
+    private static final String[] TAB_NAMES =
+            { "Head", "Torso", "Arms", "Legs", "Chest", "Hips", "Buttocks", "Clothes" };
+    private BodyDimension.Group selected = CHEST;
     private boolean previewDragging;
     private float rotation;
     private int zoom = 0;
@@ -60,7 +62,7 @@ public final class AvatarEditorScreen extends Screen {
         if (selected == OUTFIT) {
             addOutfitControls(controlX, controlWidth, y);
         } else {
-            if (selected != SHAPE) {
+            if (selected == HEAD || selected == TORSO || selected == ARMS || selected == LEGS) {
                 addRenderableWidget(Button.builder(
                         Component.literal("Mesh: " + shapeFor(selected)),
                         button -> {

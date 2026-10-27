@@ -37,7 +37,7 @@ class EditorSourcesTest(unittest.TestCase):
                      'HEAD_WIDTH', 'TORSO_WIDTH', 'ARM_WIDTH', 'LEG_WIDTH'):
             self.assertIn(name, model)
 
-    def test_chest_and_butt_geometry_own_cubes(self):
+    def test_chest_and_butt_geometry_use_surface_mesh(self):
         surface = source('client/model/AnatomySurface.java')
         self.assertIn('private static final int ANGLES = 16;', surface)
         self.assertIn('private static final int RINGS = 5;', surface)
@@ -49,11 +49,12 @@ class EditorSourcesTest(unittest.TestCase):
         dimension_src = source('appearance/BodyDimension.java')
         model_src = source('client/model/ModularPlayerModel.java')
         motion = source('client/AnatomyMotion.java')
+        surface_src = source('client/model/AnatomySurface.java')
         for name in ('CHEST_SEPARATION', 'CHEST_POSITION', 'CHEST_WIDTH',
                      'CHEST_HEIGHT', 'CHEST_SWAY', 'BUTTOCK_SEPARATION',
                      'BUTTOCK_POSITION', 'BUTTOCK_WIDTH', 'BUTTOCK_HEIGHT'):
             self.assertIn(name, dimension_src)
-            self.assertIn(name, model_src if name != 'CHEST_SWAY' else motion)
+            self.assertIn(name, motion if name == 'CHEST_SWAY' else surface_src)
         self.assertIn('AnatomyMotion.tick(mc.player)', source('client/EditorHotkeys.java'))
         self.assertIn('AnatomySurface.render(', model_src)
         self.assertIn('AnatomySurface.render(', model_src)

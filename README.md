@@ -1,80 +1,84 @@
-# Modular Player — Forge 1.20.1 starter (v0.2)
+# Modular Player — In-game Character Editor (v0.3 alpha)
 
-**Mục tiêu: thay thế toàn diện model player theo module, thay cơ thể và trang phục độc lập. Chiều cao không phải trọng tâm.**
+**A full player avatar customization system, starting with Steve.** Minecraft Java 1.20.1 / Forge 47.4.10 / Java 17. Height is not the core goal: body geometry and clothing are independent, customizable systems.
 
-Repository: https://github.com/susu609/ModularPlayer  
-Mod ID: `modularplayer` · Java 17 · Minecraft 1.20.1 · Forge 47.4.10
+## Open editor in-game
 
-## Phạm vi bản alpha
+Press **P** while playing to open the **Modular Player** editor. Bedrock-inspired layout:
 
-Đây là bản thử nghiệm kiến trúc và renderer cho local player (third person/inventory), **chưa phải hệ thống avatar hoàn thiện**. Chưa xác nhận `gradle compileJava` trong môi trường dựng nguồn.
+- **Left panel:** Head, Torso, Arms, Legs, Shape, Clothes
+- **Center:** Preview of the *current local player* in 3D, drag with mouse to rotate, scroll to zoom
+- **Right panel:** Change mesh preset, shape parameters, clothes
+- **Save:** Apply changes and persist to Forge client config
+- **Cancel / ESC:** Revert to the appearance from before opening the editor
+- **Reset:** Restore default Steve body values in preview (press Save to persist)
 
-- Skin Steve nội bộ làm nền; mesh hình học của mod được render thay cho body vanilla của người chơi cục bộ.
-- Có preset `Shape.STEVE` và `Shape.WIDE`, chọn riêng cho **đầu / thân / tay / chân**.
-- **Mũ / áo / quần / giày** là các render pass với texture PNG độc lập, mỗi slot có `NONE`; chưa tích hợp inventory equipment.
-- Animation vanilla vẫn cung cấp pose cho các phần cơ thể. Mesh được mod điều khiển với `ModelPart.copyFrom(...)`.
-- Chỉ thay đổi hình ảnh local player; **không sửa hitbox, camera, eye height hoặc server gameplay**.
-- Chưa hỗ trợ đầy đủ tay góc nhìn thứ nhất, armor, elytra, cape, skin người chơi khác, đồng bộ multiplayer, GUI editor, import Blockbench hoặc accessory 3D.
-- Phím tắt thay đổi ngoại hình chỉ lưu trong phiên chạy hiện tại.
+Controls preview the same player renderer as the world. If your UI is very small, increase game window size or lower GUI Scale in Minecraft settings.
 
-## Nơi sửa code
+### Adjustable properties (15 sliders)
 
-| Muốn sửa | File |
+| Editor tab | Independent parameters |
 |---|---|
-| Tạo preset mesh mới, hình học từng bộ phận | `src/main/java/com/susu609/modularplayer/client/model/BodyGeometry.java` |
-| Điều khiển render cơ thể và quần áo | `src/main/java/com/susu609/modularplayer/client/model/ModularPlayerModel.java` |
-| Thêm loại shape hoặc slot outfit | `src/main/java/com/susu609/modularplayer/appearance/Appearance.java` |
-| Thay trạng thái ngoại hình khi chơi | `src/main/java/com/susu609/modularplayer/client/AppearanceState.java` |
-| Đăng ký và bắt phím đổi đồ | `src/main/java/com/susu609/modularplayer/client/EditorHotkeys.java` |
-| Default các bộ phận | `src/main/java/com/susu609/modularplayer/ClientConfig.java` |
-| Thay player renderer | `src/main/java/com/susu609/modularplayer/client/mixin/PlayerRendererMixin.java` |
-| Đăng ký model layers | `src/main/java/com/susu609/modularplayer/client/ClientRendererRegistration.java` |
-| Texture cơ thể Steve | `src/main/resources/assets/modularplayer/textures/body/steve.png` |
-| Texture từng món đồ | `src/main/resources/assets/modularplayer/textures/outfit/*.png` |
+| Head | width, height, depth |
+| Torso | width, length, depth |
+| Arms | width, length, depth |
+| Legs | width, length, depth |
+| Shape | chest/breast projection, buttock projection, hip width |
+| Clothes | hat, shirt, pants, footwear; separate 64x64 texture atlases |
 
-## Phím thử trong game
+**Individual mesh presets** Steve / Wide can be chosen for Head, Torso, Arms and Legs independently. Chest and buttock volume default to **0** (Steve baseline) and are separate cubic meshes attached to the torso animation pivot; there are two independent left/right cubes within each anatomical group, driven by a common parameter. Shape protrusions use the clothing atlas when a top/bottom is equipped.
 
-- `B`: đổi mesh **thân** Steve/Wide
-- `V`: đổi **áo** (không áo / Steve xanh / Steve đỏ)
-- `N`: đổi **quần** (không quần / Steve pants)
-- `M`: đổi **giày** (không giày / Steve boots)
+The editor is a **visual-only client prototype**. No hitbox, health, player height, eye height, camera, physics, server-side syncing, or remote-player skin is changed. Model-part scales do not yet support custom vertex edits or import/export Blockbench; clothing still uses the body silhouette and might clip at extreme values. Armor, cape, Elytra, first-person hands and modded animation compatibility need testing and dedicated rendering support. This is not a shipped mod release.
 
-Đổi shape đầu/tay/chân và mũ trong `config/modularplayer-client.toml` (hoặc `run/config/modularplayer-client.toml`). Ví dụ file cấu hình sinh sau lần khởi động đầu tiên:
+### Where to edit code
 
-```toml
-[appearance]
-  enabled = true
-  [appearance.body]
-    head = "STEVE"
-    torso = "WIDE"
-    arms = "STEVE"
-    legs = "STEVE"
-  [appearance.outfit]
-    headwear = "NONE"
-    top = "STEVE_BLUE"
-    bottom = "STEVE_PANTS"
-    feet = "NONE"
+| Feature | Exact path in repository |
+|---|---|
+| Main editor screen, layout, drag/zoom, tabs/buttons | `src/main/java/com/susu609/modularplayer/client/gui/AvatarEditorScreen.java` |
+| Slider UI widget | `src/main/java/com/susu609/modularplayer/client/gui/BodySlider.java` |
+| All slider parameters and min/max/default | `src/main/java/com/susu609/modularplayer/appearance/BodyDimension.java` |
+| Chest / buttock cube geometry | `src/main/java/com/susu609/modularplayer/client/model/BodyGeometry.java` |
+| Scaling animation pivots, rendering shapes/outfits | `src/main/java/com/susu609/modularplayer/client/model/ModularPlayerModel.java` |
+| Live appearance and Save/Cancel | `src/main/java/com/susu609/modularplayer/client/AppearanceState.java` |
+| Persistent Forge client config | `src/main/java/com/susu609/modularplayer/ClientConfig.java` |
+| Editor key binding (**P**) and quick switches (**B/V/N/M**) | `src/main/java/com/susu609/modularplayer/client/EditorHotkeys.java` |
+| Wardrobe choices | `src/main/java/com/susu609/modularplayer/appearance/Appearance.java` |
+| Steve body texture | `src/main/resources/assets/modularplayer/textures/body/steve.png` |
+| Garment textures | `src/main/resources/assets/modularplayer/textures/outfit/` |
+
+### Data flow
+
+```text
+P key -> AvatarEditorScreen -> AppearanceState (in-memory draft)
+                                   |
+                         BodyDimension values
+                                   |
+         PlayerRendererMixin -> ModularPlayerModel -> pose and geometry
+                                   |
+                               render clothes
+                                   |
+           Save -> ClientConfig -> config/modularplayer-client.toml
+           Cancel -> restore prior session state
 ```
 
-## Hướng phát triển
+**Forge client config:** stored in `config/modularplayer-client.toml` under the current game directory. The `[appearance.dimensions]` section includes each slider key, such as `chest_volume`, `buttock_volume`, and `hip_width`.
 
-1. **BodyPart Registry + JSON/Blockbench geometry loader**: dùng `ResourceLocation` thay cho các shape hardcode.
-2. **Clothing Registry / equipment**: model hình khối riêng cho áo quần, chất liệu, độ dày, layer ordering và xử lý clipping.
-3. **Avatar Editor**: GUI preview 3D, chọn từng bộ phận, lưu profile, import/export.
-4. **Gameplay integration**: first-person hands, armor, elytra, animation, multiplayer sync và hitbox tùy chọn.
-5. **API mở** để mod khác thêm body part, garment và preset skin.
+## Build / tests
 
-## Build & Test
-
-Yêu cầu JDK 17, Gradle 8.1.1 và Internet để tải Forge. Chưa đóng gói binary Gradle wrapper. Dùng Gradle đã cài:
+JDK 17, internet and Gradle 8.1.1 are required. Wrapper is not packaged in this starter.
 
 ```bash
 gradle compileJava
 gradle runClient
+python -m unittest discover -s tests
 ```
 
-Workflow `.github/workflows/compile.yml` chạy compile trên GitHub Actions. Bộ test Python `tests/test_starter_assets.py` kiểm tra texture 64×64, resource JSON và đường dẫn trong code; **không thay thế kiểm thử Forge runtime**.
+CI is configured in `.github/workflows/compile.yml` to compile with Java 17. API references: [Forge screens](https://docs.minecraftforge.net/en/1.20.1/gui/screens/) and [Bedrock Character Creator](https://minecraft.wiki/w/Character_creator).
 
-### Texture
+## Roadmap
 
-Texture Steve và lớp trang phục demo là pixel art tự dựng theo UV Steve 64×64, không dùng trực tiếp skin thương mại. Outfit atlas tách riêng cho từng slot để có thể thay áo, quần, mũ và giày mà không cần thay skin cơ thể.
+1. Stable in-game preview and fully independent scaling sliders (this commit; compile/runtime verification still required).
+2. Independent Blockbench-compatible BodyPart Registry (custom mesh geometry and bone pivots rather than cube presets).
+3. Clothing Registry and garments with matching geometry, layering, offsets, UV mapping and anti-clipping.
+4. Profiles, 3D thumbnail selection, presets, localized UI and import/export.
+5. Multiplayer appearance sync, first-person arms, armor/elytra/cape integration and third-party animation support.

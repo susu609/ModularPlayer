@@ -2,6 +2,7 @@ package com.susu609.modularplayer.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.susu609.modularplayer.ModularPlayerMod;
+import com.susu609.modularplayer.client.gui.AvatarEditorScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -12,9 +13,10 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
-/** Prototype direct editor: torso, shirt, pants and boots switch without restart. */
+/** P opens the full editor; old outfit shortcuts remain for quick preview. */
 public final class EditorHotkeys {
     private static final String CATEGORY = "key.categories.modularplayer";
+    private static final KeyMapping OPEN = key("editor", GLFW.GLFW_KEY_P);
     private static final KeyMapping BODY = key("torso", GLFW.GLFW_KEY_B);
     private static final KeyMapping TOP = key("shirt", GLFW.GLFW_KEY_V);
     private static final KeyMapping BOTTOM = key("pants", GLFW.GLFW_KEY_N);
@@ -32,6 +34,7 @@ public final class EditorHotkeys {
     public static final class Registry {
         @SubscribeEvent
         public static void keys(RegisterKeyMappingsEvent event) {
+            event.register(OPEN);
             event.register(BODY);
             event.register(TOP);
             event.register(BOTTOM);
@@ -47,6 +50,10 @@ public final class EditorHotkeys {
             if (event.phase != TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.screen != null) return;
+            if (OPEN.consumeClick()) {
+                mc.setScreen(new AvatarEditorScreen());
+                return;
+            }
             if (BODY.consumeClick()) {
                 AppearanceState.cycleTorso();
                 show(mc, "Torso: " + AppearanceState.current().torso());

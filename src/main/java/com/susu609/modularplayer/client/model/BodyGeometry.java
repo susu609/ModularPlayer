@@ -8,7 +8,10 @@ import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.client.model.geom.PartPose;
 
-/** Each preset owns its cubes. It does NOT reuse Minecraft's base player cubes at render time. */
+/**
+ * Geometry baseline for modular avatar. Every variant has the same named bones.
+ * Front is negative Z. Chest and glutes are separate meshes, not part of the Steve skin.
+ */
 public final class BodyGeometry {
     private BodyGeometry() {}
 
@@ -47,7 +50,17 @@ public final class BodyGeometry {
         group.addOrReplaceChild("left_leg", CubeListBuilder.create().texOffs(16, 48)
                 .addBox(legX, 0, -2, legWidth, 12, 4), PartPose.ZERO);
 
-        // Garments own geometry and can be rendered from independent texture atlases.
+        // Distinct meshes, so breast and buttock depth can be changed without
+        // scaling the entire torso. UVs reuse local regions of the body atlas.
+        group.addOrReplaceChild("chest_left", CubeListBuilder.create().texOffs(16, 19)
+                .addBox(-4.0F, 2.5F, -4.0F, 3.9F, 3.8F, 2.05F), PartPose.ZERO);
+        group.addOrReplaceChild("chest_right", CubeListBuilder.create().texOffs(16, 19)
+                .addBox(0.1F, 2.5F, -4.0F, 3.9F, 3.8F, 2.05F), PartPose.ZERO);
+        group.addOrReplaceChild("glute_left", CubeListBuilder.create().texOffs(16, 24)
+                .addBox(-4.0F, 8.0F, 1.95F, 3.9F, 4.0F, 2.05F), PartPose.ZERO);
+        group.addOrReplaceChild("glute_right", CubeListBuilder.create().texOffs(16, 24)
+                .addBox(0.1F, 8.0F, 1.95F, 3.9F, 4.0F, 2.05F), PartPose.ZERO);
+
         CubeDeformation gap = new CubeDeformation(0.26F);
         group.addOrReplaceChild("hat", CubeListBuilder.create().texOffs(32, 0)
                 .addBox(headX, -8, -4, headWidth, 8, 8, gap), PartPose.ZERO);

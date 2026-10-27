@@ -16,3 +16,5 @@ jobs:
           gradle-version: '8.1.1'
       - name: Compile Java
         run: gradle compileJava --no-daemon
+      - name: Offline Python source tests
+        run: python3 -m unittest discover -s tests

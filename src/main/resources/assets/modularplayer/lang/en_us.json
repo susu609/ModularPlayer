@@ -4,5 +4,6 @@
   "key.modularplayer.torso": "Change body shape",
   "key.modularplayer.shirt": "Change shirt",
   "key.modularplayer.pants": "Change pants",
-  "key.modularplayer.boots": "Change shoes"
+  "key.modularplayer.boots": "Change shoes",
+  "key.modularplayer.emote": "Cycle wave / body shake / stop"
 }

@@ -76,9 +76,11 @@ public final class AnatomySurface {
             float width = rx * sideSize;
             float height = ry * sideSize;
             float projection = depth * sideSize;
+            // Two independent spring systems react to body acceleration.
+            // Skin and clothing invoke this exact same offset calculation.
             float cx = side * (2F * overallWidth + separation * .5F)
-                    + (rear ? 0F : AnatomyMotion.lateralPixels(side) * .35F);
-            float cy = centerY - (rear ? 0F : AnatomyMotion.verticalPixels(side));
+                    + AnatomyMotion.lateralPixels(rear, side);
+            float cy = centerY - AnatomyMotion.verticalPixels(rear, side);
 
             for (int ring = 0; ring < RINGS; ring++) {
                 float inner = (float) ring / RINGS;

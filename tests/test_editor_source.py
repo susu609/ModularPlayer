@@ -30,7 +30,7 @@ class EditorSourcesTest(unittest.TestCase):
 
     def test_all_dimensions_represented_in_config_and_model(self):
         dimensions = source('appearance/BodyDimension.java')
-        self.assertEqual(len(re.findall(r'^[ ]+[A-Z_]+\(Group\.', dimensions, re.M)), 31)
+        self.assertEqual(len(re.findall(r'^[ ]+[A-Z_]+\(Group\.', dimensions, re.M)), 35)
         self.assertIn('defineInRange(dimension.configName()', source('ClientConfig.java'))
         model = source('client/model/ModularPlayerModel.java')
         for name in ('CHEST_VOLUME', 'BUTTOCK_VOLUME', 'HIP_WIDTH',
@@ -77,7 +77,7 @@ class EditorSourcesTest(unittest.TestCase):
         self.assertIn('ChestPreset.values()[presetIndex].apply()', editor)
         self.assertIn('new BodySlider(', editor)
         self.assertIn('AnatomyMotion.reset()', presets)
-        self.assertIn('float[] vertical = new float[2]', physics)
+        self.assertIn('float[][] vertical = new float[2][2]', physics)
         self.assertIn('float spring =', physics)
         self.assertIn('float drag =', physics)
 
@@ -111,7 +111,7 @@ class EditorSourcesTest(unittest.TestCase):
         self.assertIn('MeshRig.Offset deform = rig.sample(', geometry)
         self.assertIn('float u =', geometry)
         self.assertIn('float v =', geometry)
-        self.assertIn('MESH, OUTFIT', screen)
+        self.assertIn('MESH, EMOTES, OUTFIT', screen)
         self.assertIn('drawMeshRigMap(gui)', screen)
         self.assertIn('clickRigMap(mouseX, mouseY)', screen)
         self.assertIn('rigMapDragging', screen)
@@ -133,6 +133,50 @@ class EditorSourcesTest(unittest.TestCase):
         self.assertIn('Float.isFinite(offset)', code)
         self.assertIn('MeshRigPresets.save(rigSlot, AppearanceState.rig())', gui)
         self.assertIn('AppearanceState.setRig(MeshRigPresets.load(rigSlot))', gui)
+
+    def test_whole_body_height_anchor_and_outfit(self):
+        dimensions = source('appearance/BodyDimension.java')
+        model = source('client/model/ModularPlayerModel.java')
+        editor = source('client/gui/AvatarEditorScreen.java')
+        self.assertIn('PLAYER_HEIGHT(Group.HEIGHT', dimensions)
+        self.assertIn('HEIGHT, HEAD', dimensions)
+        self.assertIn('stretchHeight(pose);', model)
+        self.assertEqual(model.count('stretchHeight(pose);'), 2)
+        self.assertIn('pose.translate(0F, 1.5F * (1F - height), 0F)', model)
+        self.assertIn('pose.scale(1F, height, 1F)', model)
+        self.assertIn('HEIGHT, HEAD', editor)
+
+    def test_secondary_motion_responds_to_acceleration_for_both_parts(self):
+        motion = source('client/AnatomyMotion.java')
+        surface = source('client/model/AnatomySurface.java')
+        dim = source('appearance/BodyDimension.java')
+        for key in ('BUTTOCK_SWAY', 'BUTTOCK_FIRMNESS', 'BUTTOCK_DAMPING'):
+            self.assertIn(key, dim)
+            self.assertIn(key, motion)
+        for phrase in ('velocity.subtract(previousVelocity)', 'wrapDegrees(yaw - previousYaw)',
+                       'grounded && !previousGround', 'EmoteState.bodyShakeImpulse()',
+                       'simulate(CHEST,', 'simulate(BUTTOCKS,',
+                       'zero(part);', 'float drag ='):
+            self.assertIn(phrase, motion)
+        self.assertIn('AnatomyMotion.lateralPixels(rear, side)', surface)
+        self.assertIn('AnatomyMotion.verticalPixels(rear, side)', surface)
+
+    def test_emotes_live_editor_and_hotkey(self):
+        emote = source('client/EmoteState.java')
+        hotkeys = source('client/EditorHotkeys.java')
+        model = source('client/model/ModularPlayerModel.java')
+        editor = source('client/gui/AvatarEditorScreen.java')
+        self.assertIn('WAVE("Wave",', emote)
+        self.assertIn('BODY_SHAKE("Body shake",', emote)
+        self.assertIn('GLFW.GLFW_KEY_G', hotkeys)
+        self.assertIn('EmoteState.tick(mc.player)', hotkeys)
+        self.assertIn('AnatomyMotion.tick(mc.player)', hotkeys)
+        self.assertIn('applyEmote(ageInTicks)', model)
+        self.assertIn('EmoteState.Emote.WAVE', model)
+        self.assertIn('EmoteState.Emote.BODY_SHAKE', model)
+        self.assertIn('addEmoteControls(', editor)
+        self.assertIn('EmoteState.stop()', editor)
+        self.assertIn('tabPage =', editor)
 
     def test_local_only_scope(self):
         self.assertIn('ClientTarget.appliesTo(player)',

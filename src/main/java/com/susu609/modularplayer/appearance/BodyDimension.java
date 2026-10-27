@@ -6,6 +6,8 @@ package com.susu609.modularplayer.appearance;
  * These are cosmetic only: never change collision, eye height or reach.
  */
 public enum BodyDimension {
+    PLAYER_HEIGHT(Group.HEIGHT, "Whole-body height", 1.0, 0.70, 1.70),
+
     HEAD_WIDTH(Group.HEAD, "Head width", 1.0, 0.65, 1.60),
     HEAD_HEIGHT(Group.HEAD, "Head height", 1.0, 0.65, 1.55),
     HEAD_DEPTH(Group.HEAD, "Head depth", 1.0, 0.65, 1.60),
@@ -44,9 +46,12 @@ public enum BodyDimension {
     BUTTOCK_SEPARATION(Group.BUTTOCKS, "Separation", 0.0, 0.0, 2.0),
     BUTTOCK_POSITION(Group.BUTTOCKS, "Vertical offset", 0.0, -1.5, 1.5),
     BUTTOCK_WIDTH(Group.BUTTOCKS, "Width", 1.0, 0.65, 1.60),
-    BUTTOCK_HEIGHT(Group.BUTTOCKS, "Height", 1.0, 0.70, 1.40);
+    BUTTOCK_HEIGHT(Group.BUTTOCKS, "Height", 1.0, 0.70, 1.40),
+    BUTTOCK_SWAY(Group.BUTTOCKS, "Soft motion", 0.35, 0.0, 1.0),
+    BUTTOCK_FIRMNESS(Group.BUTTOCKS, "Spring stiffness", 0.58, 0.05, 1.0),
+    BUTTOCK_DAMPING(Group.BUTTOCKS, "Motion damping", 0.73, 0.10, 1.0);
 
-    public enum Group { HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, MESH, OUTFIT }
+    public enum Group { HEIGHT, HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, MESH, EMOTES, OUTFIT }
 
     private final Group group;
     private final String label;
@@ -80,7 +85,9 @@ public enum BodyDimension {
             return String.format(java.util.Locale.ROOT, "%.1f px", value);
         }
         if (this == CHEST_SWAY || this == CHEST_FULLNESS
-                || this == CHEST_FIRMNESS || this == CHEST_DAMPING) {
+                || this == CHEST_FIRMNESS || this == CHEST_DAMPING
+                || this == BUTTOCK_SWAY || this == BUTTOCK_FIRMNESS
+                || this == BUTTOCK_DAMPING) {
             return Math.round(value * 100) + "%";
         }
         if (this == CHEST_LIFT) {

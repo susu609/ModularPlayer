@@ -17,6 +17,7 @@ import org.lwjgl.glfw.GLFW;
 public final class EditorHotkeys {
     private static final String CATEGORY = "key.categories.modularplayer";
     private static final KeyMapping OPEN = key("editor", GLFW.GLFW_KEY_P);
+    private static final KeyMapping EMOTE = key("emote", GLFW.GLFW_KEY_G);
     private static final KeyMapping BODY = key("torso", GLFW.GLFW_KEY_B);
     private static final KeyMapping TOP = key("shirt", GLFW.GLFW_KEY_V);
     private static final KeyMapping BOTTOM = key("pants", GLFW.GLFW_KEY_N);
@@ -35,6 +36,7 @@ public final class EditorHotkeys {
         @SubscribeEvent
         public static void keys(RegisterKeyMappingsEvent event) {
             event.register(OPEN);
+            event.register(EMOTE);
             event.register(BODY);
             event.register(TOP);
             event.register(BOTTOM);
@@ -49,11 +51,21 @@ public final class EditorHotkeys {
         public static void tick(TickEvent.ClientTickEvent event) {
             if (event.phase != TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getInstance();
+            EmoteState.tick(mc.player);
             AnatomyMotion.tick(mc.player);
             if (mc.player == null || mc.screen != null) return;
             if (OPEN.consumeClick()) {
                 mc.setScreen(new AvatarEditorScreen());
                 return;
+            }
+            if (EMOTE.consumeClick()) {
+                EmoteState.Emote next = switch (EmoteState.current()) {
+                    case NONE -> EmoteState.Emote.WAVE;
+                    case WAVE -> EmoteState.Emote.BODY_SHAKE;
+                    case BODY_SHAKE -> EmoteState.Emote.NONE;
+                };
+                EmoteState.start(next, mc.player);
+                show(mc, "Emote: " + next.label());
             }
             if (BODY.consumeClick()) {
                 AppearanceState.cycleTorso();

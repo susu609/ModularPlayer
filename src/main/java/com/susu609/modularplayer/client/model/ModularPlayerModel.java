@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.susu609.modularplayer.appearance.Appearance;
 import com.susu609.modularplayer.appearance.BodyDimension;
 import com.susu609.modularplayer.client.AppearanceState;
-import com.susu609.modularplayer.client.AnatomyMotion;
+import com.susu609.modularplayer.client.EmoteState;
 import com.susu609.modularplayer.client.ClientTarget;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -37,6 +37,35 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
                           float ageInTicks, float netHeadYaw, float headPitch) {
         super.setupAnim(player, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
         active = ClientTarget.appliesTo(player);
+        if (active) applyEmote(ageInTicks);
+    }
+
+    /** Pose overlay is only applied after vanilla walk / use-item animations. */
+    private void applyEmote(float ageInTicks) {
+        float fade = EmoteState.envelope();
+        if (fade <= 0F) return;
+        float t = EmoteState.elapsed() + (ageInTicks - (float) Math.floor(ageInTicks));
+        if (EmoteState.playing(EmoteState.Emote.WAVE)) {
+            // Right-hand greeting: arm above shoulder, wrist-like sweep from
+            // the whole arm bone (no new skeleton dependency).
+            rightArm.xRot = rightArm.xRot * (1F - fade)
+                    - (2.35F + .18F * (float) Math.sin(t * .42F)) * fade;
+            rightArm.zRot = rightArm.zRot * (1F - fade)
+                    + (.33F * (float) Math.sin(t * .68F) - .10F) * fade;
+            head.yRot += .13F * fade * (float) Math.sin(t * .15F);
+        } else if (EmoteState.playing(EmoteState.Emote.BODY_SHAKE)) {
+            float sway = fade * (float) Math.sin(t * .74F);
+            float rebound = fade * (float) Math.cos(t * 1.48F);
+            body.zRot += sway * .14F;
+            body.yRot += sway * .18F;
+            body.xRot += rebound * .04F;
+            body.y += rebound * .16F;
+            head.zRot -= sway * .09F;
+            rightArm.zRot += sway * .24F;
+            leftArm.zRot -= sway * .24F;
+            rightLeg.xRot -= sway * .11F;
+            leftLeg.xRot += sway * .11F;
+        }
     }
 
     @Override
@@ -46,6 +75,8 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
             super.renderToBuffer(pose, vertices, light, overlay, red, green, blue, alpha);
             return;
         }
+        pose.pushPose();
+        stretchHeight(pose);
         Appearance a = AppearanceState.current();
         renderShape(a.head(), "head", head, HEAD_WIDTH, HEAD_HEIGHT, HEAD_DEPTH,
                 pose, vertices, light, overlay, red, green, blue, alpha);
@@ -67,6 +98,14 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
         if (a.bottom() == Appearance.Bottom.NONE) {
             renderCurves(pose, vertices, light, overlay, true, red, green, blue, alpha);
         }
+        pose.popPose();
+    }
+
+    /** Y-only player stretch anchored at feet (vanilla model feet = +24/16). */
+    private static void stretchHeight(PoseStack pose) {
+        float height = (float) AppearanceState.get(PLAYER_HEIGHT);
+        pose.translate(0F, 1.5F * (1F - height), 0F);
+        pose.scale(1F, height, 1F);
     }
 
     private void renderShape(Appearance.Shape shape, String name, ModelPart source,
@@ -116,6 +155,8 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
     public void renderClothes(PoseStack pose, MultiBufferSource buffers, int light,
                               AbstractClientPlayer player) {
         if (!active || player.isInvisible()) return;
+        pose.pushPose();
+        stretchHeight(pose);
         Appearance a = AppearanceState.current();
         if (a.headwear() == Appearance.Headwear.STEVE_HAT
                 && player.isModelPartShown(PlayerModelPart.HAT)) {
@@ -161,6 +202,7 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
             outfit(a.legs(), "left_boot", leftLeg, LEG_WIDTH, LEG_LENGTH, LEG_DEPTH,
                     pose, buffers, light, "outfit/steve_boots.png");
         }
+        pose.popPose();
     }
 
     private void outfit(Appearance.Shape shape, String name, ModelPart source,

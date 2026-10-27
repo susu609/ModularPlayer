@@ -4,6 +4,9 @@ import com.susu609.modularplayer.appearance.Appearance;
 import com.susu609.modularplayer.appearance.BodyDimension;
 import com.susu609.modularplayer.appearance.MeshRig;
 import com.susu609.modularplayer.client.MeshRigPresets;
+import com.susu609.modularplayer.client.EmoteState;
+import java.util.ArrayList;
+import java.util.List;
 import java.io.IOException;
 import com.susu609.modularplayer.appearance.BreastShapeProfile;
 import com.susu609.modularplayer.client.ChestPreset;
@@ -23,12 +26,13 @@ import static com.susu609.modularplayer.appearance.BodyDimension.Group.*;
  */
 public final class AvatarEditorScreen extends Screen {
     private static final BodyDimension.Group[] TABS =
-            { HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, MESH, OUTFIT };
+            { HEIGHT, HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, MESH, EMOTES, OUTFIT };
     private static final String[] TAB_NAMES =
-            { "Head", "Torso", "Arms", "Legs", "Chest", "Hips", "Buttocks", "Mesh Rig", "Clothes" };
+            { "Height", "Head", "Torso", "Arms", "Legs", "Chest", "Hips", "Buttocks", "Mesh Rig", "Emotes", "Clothes" };
     private BodyDimension.Group selected = CHEST;
     private boolean chestAdvanced;
     private int chestPage;
+    private int tabPage;
     private int presetIndex = -1;
     private String guiPageLabel = "";
     private boolean previewDragging;
@@ -76,14 +80,30 @@ public final class AvatarEditorScreen extends Screen {
                     }).bounds(previewX - viewButtonWidth / 2, 31, viewButtonWidth, 20).build());
         }
 
-        for (int i = 0; i < TABS.length; i++) {
+        // Scroll-like pagination keeps all categories reachable at low GUI heights.
+        int tabsPerPage = Math.max(2, (height - 112) / 23);
+        int pages = (TABS.length + tabsPerPage - 1) / tabsPerPage;
+        tabPage = Math.min(tabPage, pages - 1);
+        for (int i = tabPage * tabsPerPage;
+             i < Math.min(TABS.length, (tabPage + 1) * tabsPerPage); i++) {
             final BodyDimension.Group tab = TABS[i];
             String text = (selected == tab ? "> " : "") + TAB_NAMES[i];
             addRenderableWidget(Button.builder(Component.literal(text), button -> {
                 selected = tab;
                 chestPage = 0;
                 rebuildWidgets();
-            }).bounds(8, 40 + i * 23, leftWidth - 12, 20).build());
+            }).bounds(8, 40 + (i - tabPage * tabsPerPage) * 23,
+                    leftWidth - 12, 20).build());
+        }
+        if (pages > 1) {
+            int footer = height - 55;
+            int half = (leftWidth - 16) / 2;
+            addRenderableWidget(Button.builder(Component.literal("<"),
+                    b0 -> { tabPage = (tabPage + pages - 1) % pages; rebuildWidgets(); })
+                    .bounds(8, footer, half, 20).build());
+            addRenderableWidget(Button.builder(Component.literal(">"),
+                    b0 -> { tabPage = (tabPage + 1) % pages; rebuildWidgets(); })
+                    .bounds(12 + half, footer, half, 20).build());
         }
 
         int controlX = rightX + 7;
@@ -95,6 +115,8 @@ public final class AvatarEditorScreen extends Screen {
             addChestControls(controlX, controlWidth, y);
         } else if (selected == MESH) {
             addMeshRigControls(controlX, controlWidth, y);
+        } else if (selected == EMOTES) {
+            addEmoteControls(controlX, controlWidth, y);
         } else {
             if (selected == HEAD || selected == TORSO || selected == ARMS || selected == LEGS) {
                 addRenderableWidget(Button.builder(
@@ -105,11 +127,31 @@ public final class AvatarEditorScreen extends Screen {
                         }).bounds(controlX, y, controlWidth, 20).build());
                 y += 28;
             }
+            List<BodyDimension> controls = new ArrayList<>();
             for (BodyDimension dimension : BodyDimension.values()) {
-                if (dimension.group() == selected) {
-                    addRenderableWidget(new BodySlider(controlX, y, controlWidth, dimension));
-                    y += 24;
-                }
+                if (dimension.group() == selected) controls.add(dimension);
+            }
+            int pageSize = Math.max(1, (height - y - 58) / 24);
+            int pageCount = Math.max(1, (controls.size() + pageSize - 1) / pageSize);
+            chestPage = Math.min(chestPage, pageCount - 1);
+            for (int i = chestPage * pageSize;
+                 i < Math.min(controls.size(), (chestPage + 1) * pageSize); i++) {
+                addRenderableWidget(new BodySlider(controlX,
+                        y + (i - chestPage * pageSize) * 24,
+                        controlWidth, controls.get(i)));
+            }
+            if (pageCount > 1) {
+                int nav = Math.max(24, (controlWidth - 64) / 2);
+                int navY = height - 56;
+                addRenderableWidget(Button.builder(Component.literal("<"),
+                        b0 -> { chestPage = (chestPage + pageCount - 1) % pageCount; rebuildWidgets(); })
+                        .bounds(controlX, navY, nav, 18).build());
+                addRenderableWidget(Button.builder(Component.literal(">"),
+                        b0 -> { chestPage = (chestPage + 1) % pageCount; rebuildWidgets(); })
+                        .bounds(controlX + controlWidth - nav, navY, nav, 18).build());
+                guiPageLabel = (chestPage + 1) + "/" + pageCount;
+            } else {
+                guiPageLabel = "";
             }
         }
 
@@ -258,6 +300,18 @@ public final class AvatarEditorScreen extends Screen {
         }
     }
 
+    private void addEmoteControls(int x, int w, int y) {
+        addRenderableWidget(Button.builder(Component.literal("Wave / Vay tay"),
+                b -> EmoteState.start(EmoteState.Emote.WAVE, minecraft.player))
+                .bounds(x, y, w, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Body Shake"),
+                b -> EmoteState.start(EmoteState.Emote.BODY_SHAKE, minecraft.player))
+                .bounds(x, y + 26, w, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Stop emote"),
+                b -> EmoteState.stop())
+                .bounds(x, y + 52, w, 20).build());
+    }
+
     private void addOutfitControls(int x, int w, int y) {
         addRenderableWidget(Button.builder(Component.literal("Hat: " + AppearanceState.current().headwear()),
                 b -> {
@@ -311,13 +365,18 @@ public final class AvatarEditorScreen extends Screen {
         gui.drawString(font, "Body / Style", 13, 29, 0xA8C0DA);
         gui.drawString(font, selected == OUTFIT ? "Wardrobe" : "Dimensions",
                 rightX + 8, 34, 0xA8C0DA);
-        if (selected == CHEST && !guiPageLabel.isEmpty()) {
+        if (!guiPageLabel.isEmpty() && selected != MESH && selected != OUTFIT
+                && selected != EMOTES) {
             gui.drawCenteredString(font, guiPageLabel, rightX + rightWidth / 2,
                     height - 53, 0xBAC9D4);
         }
 
         if (selected == MESH) {
             drawMeshRigMap(gui);
+        }
+        if (selected == EMOTES) {
+            gui.drawString(font, "Now: " + EmoteState.current().label(),
+                    rightX + 8, 141, 0xFFA9D9C9);
         }
 
         if (minecraft != null && minecraft.player != null && previewRight - previewLeft > 50) {

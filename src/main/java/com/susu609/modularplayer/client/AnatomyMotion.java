@@ -6,18 +6,23 @@ import net.minecraft.world.phys.Vec3;
 import java.util.UUID;
 
 /**
- * Two independent stable spring channels, ticked only on the client.
- * Shape, volume, and movement strength are independent knobs.
- * Disabled motion has exactly zero offsets and preserves Steve's idle pose.
- *
- * This is visual-only and has no effect on gameplay or entity dimensions.
+ * Bounded, discrete spring-damper secondary motion, once per client tick.
+ * Uses local-space acceleration, turn rate, vertical landings and emote force.
+ * Chest and glutes have independent stiffness, drag, mass-like response and
+ * left/right channels; appearance-only, no collisions or rigid-body physics.
  */
 public final class AnatomyMotion {
-    private static UUID currentPlayer;
-    private static final float[] vertical = new float[2];
-    private static final float[] horizontal = new float[2];
-    private static final float[] velocityY = new float[2];
-    private static final float[] velocityX = new float[2];
+    private static final int CHEST = 0;
+    private static final int BUTTOCKS = 1;
+    private static final float[][] vertical = new float[2][2];
+    private static final float[][] lateral = new float[2][2];
+    private static final float[][] speedY = new float[2][2];
+    private static final float[][] speedX = new float[2][2];
+    private static UUID playerId;
+    private static Vec3 previousVelocity = Vec3.ZERO;
+    private static float previousYaw;
+    private static boolean previousGround;
+    private static boolean seeded;
 
     private AnatomyMotion() {}
 
@@ -26,65 +31,111 @@ public final class AnatomyMotion {
             reset();
             return;
         }
-        if (!player.getUUID().equals(currentPlayer)) {
+        if (!player.getUUID().equals(playerId)) {
             reset();
-            currentPlayer = player.getUUID();
+            playerId = player.getUUID();
         }
 
-        float strength = (float) AppearanceState.get(BodyDimension.CHEST_SWAY);
-        if (strength <= .0001F) {
-            zeroMotion();
+        Vec3 velocity = player.getDeltaMovement();
+        float yaw = player.getYRot();
+        boolean grounded = player.onGround();
+        if (!seeded) {
+            previousVelocity = velocity;
+            previousYaw = yaw;
+            previousGround = grounded;
+            seeded = true;
+        }
+
+        Vec3 acceleration = velocity.subtract(previousVelocity);
+        float yawDelta = net.minecraft.util.Mth.wrapDegrees(yaw - previousYaw);
+        double angle = Math.toRadians(yaw);
+        float horizontal = (float) (acceleration.x * Math.cos(angle)
+                                  + acceleration.z * Math.sin(angle));
+        float sideways = (float) (-acceleration.x * Math.sin(angle)
+                                + acceleration.z * Math.cos(angle));
+        float verticalAcceleration = (float) acceleration.y;
+        float landing = grounded && !previousGround
+                ? Math.min(1F, (float) Math.abs(previousVelocity.y) * 2F) : 0F;
+        float shake = EmoteState.bodyShakeImpulse();
+
+        simulate(CHEST,
+                (float) AppearanceState.get(BodyDimension.CHEST_SWAY),
+                (float) AppearanceState.get(BodyDimension.CHEST_FIRMNESS),
+                (float) AppearanceState.get(BodyDimension.CHEST_DAMPING),
+                horizontal, sideways, verticalAcceleration, yawDelta, landing, shake);
+        simulate(BUTTOCKS,
+                (float) AppearanceState.get(BodyDimension.BUTTOCK_SWAY),
+                (float) AppearanceState.get(BodyDimension.BUTTOCK_FIRMNESS),
+                (float) AppearanceState.get(BodyDimension.BUTTOCK_DAMPING),
+                horizontal, sideways, verticalAcceleration, yawDelta, landing, shake);
+
+        previousVelocity = velocity;
+        previousYaw = yaw;
+        previousGround = grounded;
+    }
+
+    private static void simulate(int part, float amount, float stiffness, float damping,
+                                 float forward, float strafe, float up, float turn,
+                                 float landing, float shake) {
+        if (amount < .0001F) {
+            zero(part);
             return;
         }
-
-        // Independent stiffness/drag controls inspired by SpringBone systems,
-        // not third-party physical simulation code.
-        float firmness = (float) AppearanceState.get(BodyDimension.CHEST_FIRMNESS);
-        float damping = (float) AppearanceState.get(BodyDimension.CHEST_DAMPING);
-        float spring = .08F + .34F * firmness;
-        float drag = .52F + .43F * damping;
-        Vec3 motion = player.getDeltaMovement();
-        double yaw = Math.toRadians(player.getYRot());
-        float sideways = (float) (motion.x * Math.cos(yaw) + motion.z * Math.sin(yaw));
-
-        for (int i = 0; i < 2; i++) {
-            float side = i == 0 ? -1F : 1F;
-            // Slightly different phase/response prevents perfectly robotic
-            // mirroring while both channels share user-facing settings.
-            float response = i == 0 ? 1F : .96F;
-            float targetY = clamp((float)(-motion.y * 2.1F) * strength * response,
-                    -.65F, .65F);
-            float targetX = clamp(-sideways * 1.65F * strength
-                    + side * Math.abs(sideways) * .13F * strength, -.42F, .42F);
-            velocityY[i] = (velocityY[i] + (targetY - vertical[i]) * spring) * drag;
-            velocityX[i] = (velocityX[i] + (targetX - horizontal[i]) * spring) * drag;
-            vertical[i] = clamp(vertical[i] + velocityY[i], -.70F, .70F);
-            horizontal[i] = clamp(horizontal[i] + velocityX[i], -.45F, .45F);
+        // Stable per-tick solver. Higher stiffness responds faster; higher
+        // damping reduces residual oscillation, not the initial impulse.
+        float spring = .09F + .25F * stiffness;
+        float drag = .90F - .45F * damping;
+        float sensitivity = part == CHEST ? 1F : .75F;
+        for (int side = 0; side < 2; side++) {
+            float direction = side == 0 ? -1F : 1F;
+            float targetY = amount * sensitivity * (
+                    -up * 2.8F + landing * .35F
+                    + shake * .35F * (part == CHEST ? 1F : .8F));
+            float targetX = amount * sensitivity * (
+                    -strafe * 2.4F - turn * .013F - forward * .45F
+                    + shake * .31F * direction);
+            // Tiny left/right difference rather than completely robotic sync.
+            float asymmetry = side == 0 ? 1F : .97F;
+            targetY = clamp(targetY * asymmetry, -.72F, .72F);
+            targetX = clamp(targetX * asymmetry, -.52F, .52F);
+            speedY[part][side] = (speedY[part][side]
+                    + (targetY - vertical[part][side]) * spring) * drag;
+            speedX[part][side] = (speedX[part][side]
+                    + (targetX - lateral[part][side]) * spring) * drag;
+            vertical[part][side] = clamp(vertical[part][side]
+                    + speedY[part][side], -.75F, .75F);
+            lateral[part][side] = clamp(lateral[part][side]
+                    + speedX[part][side], -.55F, .55F);
         }
     }
 
-    /** @param side -1: left; +1: right. */
-    public static float verticalPixels(int side) {
-        return vertical[side < 0 ? 0 : 1];
+    /** rear=false: chest; rear=true: glutes. side=-1: left; +1: right. */
+    public static float verticalPixels(boolean rear, int side) {
+        return vertical[rear ? BUTTOCKS : CHEST][side < 0 ? 0 : 1];
     }
 
-    /** @param side -1: left; +1: right. */
-    public static float lateralPixels(int side) {
-        return horizontal[side < 0 ? 0 : 1];
+    public static float lateralPixels(boolean rear, int side) {
+        return lateral[rear ? BUTTOCKS : CHEST][side < 0 ? 0 : 1];
     }
 
-    private static float clamp(float v, float min, float max) {
-        return Math.max(min, Math.min(max, v));
+    private static float clamp(float value, float low, float high) {
+        return Math.max(low, Math.min(high, value));
     }
 
-    private static void zeroMotion() {
-        for (int i = 0; i < 2; i++) {
-            vertical[i] = horizontal[i] = velocityY[i] = velocityX[i] = 0F;
+    private static void zero(int part) {
+        for (int side = 0; side < 2; side++) {
+            vertical[part][side] = lateral[part][side] = 0F;
+            speedY[part][side] = speedX[part][side] = 0F;
         }
     }
 
     public static void reset() {
-        zeroMotion();
-        currentPlayer = null;
+        zero(CHEST);
+        zero(BUTTOCKS);
+        playerId = null;
+        previousVelocity = Vec3.ZERO;
+        previousYaw = 0F;
+        previousGround = false;
+        seeded = false;
     }
 }

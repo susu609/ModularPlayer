@@ -185,3 +185,25 @@ Main source paths under `src/main/java/com/susu609/modularplayer/`:
 
 - A flat Steve shape has projection 0. In Mesh Rig, **Show surface (draft)** sets the currently chosen chest/buttock projection to 0.85 for editing. This is a normal draft change, so **Cancel/ESC restores the original flat shape**.
 - Press **R** while Mesh Rig is selected to reset only the active mesh's 3D control-point offsets. The full avatar and other mesh parts are preserved until the global Reset button is chosen.
+
+
+## v0.9 — Secondary Motion, Height and Emotes
+
+**P → Height**: use the `Whole-body height` slider (default **1.00×**, range **0.70–1.70×**). The same Y-scale is applied at the model-space foot anchor to both avatar geometry and fitted clothing, including head, limbs, chest and buttocks. This changes **visual player height only**; hitbox, eye height, reach, shadows, vanilla armor and other third-party layers are **not** automatically resized. For full physical height in multiplayer, server-owned entity dimensions and networking would require a separate feature.
+
+**P → Chest / Buttocks**: customize soft-body secondary motion. The two anatomical groups each use bounded, independent **spring stiffness**, **damping**, and **strength** with left/right channels. Physics is driven at 20 ticks/second by changes in player velocity, yaw rate, landing impulse and the body-shake emote; stationary characters settle back to neutral. This is a lightweight kinematic spring simulation, **not** volumetric finite-element body physics or collision-based cloth physics. Chest uses the existing sliders in **Basic/Advanced**. Buttocks gets three additional sliders that can be reached with its paginated category controls.
+
+**P → Emotes**: preview **Wave** (one arm waves, approximately 3.3s), **Body shake** (torso/shoulder/leg motion, approximately 4.5s), and **Stop**. Emote animations are local-only overlays on top of vanilla walking and held-item poses. Press **G** in gameplay to cycle Wave → Body shake → Stop. Motion and animation can be seen in the same 3D player preview. These are gestures, **not chat emoji**.
+
+Editor left-side tabs are paginated for smaller GUI heights; navigate with < and >. Use Save to persist your body settings, or Cancel/ESC to restore the draft. Emote playback itself is a temporary action, not a saved outfit setting.
+
+Implementation under `src/main/java/com/susu609/modularplayer/`:
+- `appearance/BodyDimension.java`: `PLAYER_HEIGHT` and the Buttocks physics controls.
+- `client/AnatomyMotion.java`: separate acceleration-driven springs for both groups.
+- `client/EmoteState.java`: timed gestures and body-shake impulses.
+- `client/model/ModularPlayerModel.java`: foot-anchored whole-body scaling and skeleton pose overlays.
+- `client/model/AnatomySurface.java`: live motion offsets applied equally to bare surfaces and outfits.
+- `client/gui/AvatarEditorScreen.java`: Height / Emotes tabs, paginated controls.
+- `client/EditorHotkeys.java`: emote G key, state and physics tick.
+
+**Known limitations:** no native animation timeline editor; other clients cannot see this local player's emotes, and this version doesn't change the physical/collision height. Forge compilation and source tests do not prove rendering in a real client, so test the editor in-game at front/side/isometric views before calling the visuals final.

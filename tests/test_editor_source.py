@@ -30,7 +30,7 @@ class EditorSourcesTest(unittest.TestCase):
 
     def test_all_dimensions_represented_in_config_and_model(self):
         dimensions = source('appearance/BodyDimension.java')
-        self.assertEqual(len(re.findall(r'^[ ]+[A-Z_]+\(Group\.', dimensions, re.M)), 24)
+        self.assertEqual(len(re.findall(r'^[ ]+[A-Z_]+\(Group\.', dimensions, re.M)), 31)
         self.assertIn('defineInRange(dimension.configName()', source('ClientConfig.java'))
         model = source('client/model/ModularPlayerModel.java')
         for name in ('CHEST_VOLUME', 'BUTTOCK_VOLUME', 'HIP_WIDTH',
@@ -42,7 +42,9 @@ class EditorSourcesTest(unittest.TestCase):
         self.assertIn('private static final int ANGLES = 16;', surface)
         self.assertIn('private static final int RINGS = 5;', surface)
         self.assertIn('for (int side : new int[]{-1, 1})', surface)
-        self.assertIn('float falloff = 1F - radius * radius;', surface)
+        self.assertIn('profile.depth(u, v, fullness)', surface)
+        self.assertIn('CHEST_LEFT_SCALE', surface)
+        self.assertIn('CHEST_RIGHT_SCALE', surface)
         self.assertIn('pose', surface.lower())
 
     def test_reference_chest_controls_and_motion(self):
@@ -58,6 +60,26 @@ class EditorSourcesTest(unittest.TestCase):
         self.assertIn('AnatomyMotion.tick(mc.player)', source('client/EditorHotkeys.java'))
         self.assertIn('AnatomySurface.render(', model_src)
         self.assertIn('AnatomySurface.render(', model_src)
+
+    def test_breast_rig_2_preset_shape_and_independent_spring(self):
+        profiles = source('appearance/BreastShapeProfile.java')
+        presets = source('client/ChestPreset.java')
+        editor = source('client/gui/AvatarEditorScreen.java')
+        physics = source('client/AnatomyMotion.java')
+        for profile in ('JENNY_INSPIRED', 'NATURAL', 'ROUND', 'ANGULAR'):
+            self.assertIn(profile, profiles)
+        for setting in ('CHEST_FULLNESS', 'CHEST_LIFT',
+                        'CHEST_LEFT_SCALE', 'CHEST_RIGHT_SCALE',
+                        'CHEST_FIRMNESS', 'CHEST_DAMPING'):
+            self.assertIn(setting, source('appearance/BodyDimension.java'))
+        self.assertIn('BreastShapeProfile.fromIndex(', editor)
+        self.assertIn('chestAdvanced = !chestAdvanced', editor)
+        self.assertIn('ChestPreset.values()[presetIndex].apply()', editor)
+        self.assertIn('new BodySlider(', editor)
+        self.assertIn('AnatomyMotion.reset()', presets)
+        self.assertIn('float[] vertical = new float[2]', physics)
+        self.assertIn('float spring =', physics)
+        self.assertIn('float drag =', physics)
 
     def test_local_only_scope(self):
         self.assertIn('ClientTarget.appliesTo(player)',

@@ -116,3 +116,21 @@ Our independent implementation is `src/main/java/com/susu609/modularplayer/clien
 - No GeckoLib dependency is added; vanilla player animations are preserved. No hitbox or first-person changes.
 
 **Known limitations:** surface geometry is still an alpha approximation, uses the torso UV atlas rather than custom material layouts, and must be visually tested from all angles. Continuous garment fitting, custom clothing geometry, UV stretching, armor layers, first-person hands and Blockbench model import remain planned work. The geometry samples can be replaced by a JSON/Blockbench mesh provider in a future renderer module.
+
+
+## v0.6: Breast Rig 2.0 — model shape and physics controlled separately
+
+Goal: **use Jenny's chest silhouette as an artistic reference without reusing the Jenny geometry or source**. The implementation follows broadly used character customization patterns such as blend/morph shapes and spring joints, but operates on the existing Minecraft `VertexConsumer` surface mesh.
+
+- `appearance/BreastShapeProfile.java` contains four independent parametric curves: **Jenny-inspired, Natural, Round, Angular**. Shape profile does not force size or jiggle.
+- `client/ChestPreset.java` offers **Jenny-inspired / Natural / Round / Soft Motion / Steve** starting points. Only chest controls change. Default world avatar remains flat Steve.
+- `appearance/BodyDimension.java` adds editable `chest_fullness`, `chest_lift`, `chest_left_scale`, `chest_right_scale`, `chest_firmness`, `chest_damping` and a discrete `chest_style`. Values persist automatically with the existing `ClientConfig` dimension registry.
+- `client/model/AnatomySurface.java` deforms left/right lobes separately. UVs and normals are generated for the procedural profile, and both skin and outfit use the same geometry procedure.
+- `client/AnatomyMotion.java` has two independently damped channels. Motion strength, spring stiffness and damping are separate, bounded controls. Zero motion disables the solver.
+- `client/gui/AvatarEditorScreen.java`: open with **P**, Chest tab has a **shape selector, preset selector**, Basic/Advanced button and **pagination** so controls fit typical GUI sizes. Basic: size, fullness, lift, spacing, soft motion; Advanced: width, height, position, left/right scaling, stiffness, damping.
+
+**Limits:** no GeckoLib or native per-vertex mesh import, no breast/cloth collision simulation, no real cloth draping, and no third-party assets. Top garment currently shares the deformed surface with a small shell offset, not a volumetric tailored garment. Build/test still cannot verify the preview in-game without an actual client run.
+
+References for implementation philosophy:
+- [Unity deformable mesh and morph targets](https://docs.unity.cn/6000.1/Documentation/Manual/mesh-data-deformable-meshes.html)
+- [VRM SpringBone 1.0 spec](https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_springBone-1.0/README.md)

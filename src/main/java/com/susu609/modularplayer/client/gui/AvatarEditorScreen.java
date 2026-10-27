@@ -3,6 +3,8 @@ package com.susu609.modularplayer.client.gui;
 import com.mojang.math.Axis;
 import com.susu609.modularplayer.appearance.Appearance;
 import com.susu609.modularplayer.appearance.BodyDimension;
+import com.susu609.modularplayer.appearance.BreastShapeProfile;
+import com.susu609.modularplayer.client.ChestPreset;
 import com.susu609.modularplayer.client.AppearanceState;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -23,6 +25,10 @@ public final class AvatarEditorScreen extends Screen {
     private static final String[] TAB_NAMES =
             { "Head", "Torso", "Arms", "Legs", "Chest", "Hips", "Buttocks", "Clothes" };
     private BodyDimension.Group selected = CHEST;
+    private boolean chestAdvanced;
+    private int chestPage;
+    private int presetIndex = -1;
+    private String guiPageLabel = "";
     private boolean previewDragging;
     private float rotation;
     private int zoom = 0;
@@ -52,6 +58,7 @@ public final class AvatarEditorScreen extends Screen {
             String text = (selected == tab ? "> " : "") + TAB_NAMES[i];
             addRenderableWidget(Button.builder(Component.literal(text), button -> {
                 selected = tab;
+                chestPage = 0;
                 rebuildWidgets();
             }).bounds(8, 40 + i * 23, leftWidth - 12, 20).build());
         }
@@ -61,6 +68,8 @@ public final class AvatarEditorScreen extends Screen {
         int y = 54;
         if (selected == OUTFIT) {
             addOutfitControls(controlX, controlWidth, y);
+        } else if (selected == CHEST) {
+            addChestControls(controlX, controlWidth, y);
         } else {
             if (selected == HEAD || selected == TORSO || selected == ARMS || selected == LEGS) {
                 addRenderableWidget(Button.builder(
@@ -93,6 +102,69 @@ public final class AvatarEditorScreen extends Screen {
             AppearanceState.saveEdit();
             minecraft.setScreen(null);
         }).bounds(controlX + 2 * (buttonW + 4), footerY, buttonW, 20).build());
+    }
+
+    /**
+     * Short, adjustable pages prevent sliders overlapping Save/Cancel at
+     * Minecraft's smaller GUI resolutions. All changes preview immediately.
+     */
+    private void addChestControls(int x, int w, int y) {
+        BreastShapeProfile profile = BreastShapeProfile.fromIndex(
+                AppearanceState.get(BodyDimension.CHEST_STYLE));
+        addRenderableWidget(Button.builder(Component.literal("Shape: " + profile.label()),
+                button -> {
+                    int style = (profile.ordinal() + 1) % BreastShapeProfile.values().length;
+                    AppearanceState.set(BodyDimension.CHEST_STYLE, style);
+                    rebuildWidgets();
+                }).bounds(x, y, w, 20).build());
+        addRenderableWidget(Button.builder(Component.literal(
+                        presetIndex < 0 ? "Load preset..." : "Preset: " + ChestPreset.values()[presetIndex].label()),
+                button -> {
+                    presetIndex = (presetIndex + 1) % ChestPreset.values().length;
+                    ChestPreset.values()[presetIndex].apply();
+                    chestPage = 0;
+                    rebuildWidgets();
+                }).bounds(x, y + 24, w, 20).build());
+        addRenderableWidget(Button.builder(Component.literal(
+                        chestAdvanced ? "Controls: Advanced" : "Controls: Basic"),
+                button -> {
+                    chestAdvanced = !chestAdvanced;
+                    chestPage = 0;
+                    rebuildWidgets();
+                }).bounds(x, y + 48, w, 20).build());
+
+        BodyDimension[] controls = chestAdvanced
+                ? new BodyDimension[]{
+                    BodyDimension.CHEST_WIDTH, BodyDimension.CHEST_HEIGHT,
+                    BodyDimension.CHEST_POSITION, BodyDimension.CHEST_LEFT_SCALE,
+                    BodyDimension.CHEST_RIGHT_SCALE, BodyDimension.CHEST_FIRMNESS,
+                    BodyDimension.CHEST_DAMPING }
+                : new BodyDimension[]{
+                    BodyDimension.CHEST_VOLUME, BodyDimension.CHEST_FULLNESS,
+                    BodyDimension.CHEST_LIFT, BodyDimension.CHEST_SEPARATION,
+                    BodyDimension.CHEST_SWAY };
+        int sliderStartY = y + 77;
+        int pageY = height - 57;
+        int pageSize = Math.max(1, (pageY - sliderStartY - 5) / 24);
+        int totalPages = (controls.length + pageSize - 1) / pageSize;
+        chestPage = Math.min(chestPage, totalPages - 1);
+        for (int i = chestPage * pageSize; i < Math.min(controls.length,
+                (chestPage + 1) * pageSize); i++) {
+            addRenderableWidget(new BodySlider(x, sliderStartY
+                    + (i - chestPage * pageSize) * 24, w, controls[i]));
+        }
+        if (totalPages > 1) {
+            int navWidth = Math.max(24, (w - 68) / 2);
+            addRenderableWidget(Button.builder(Component.literal("<"),
+                    b -> { chestPage = (chestPage + totalPages - 1) % totalPages; rebuildWidgets(); })
+                    .bounds(x, pageY, navWidth, 18).build());
+            addRenderableWidget(Button.builder(Component.literal(">"),
+                    b -> { chestPage = (chestPage + 1) % totalPages; rebuildWidgets(); })
+                    .bounds(x + w - navWidth, pageY, navWidth, 18).build());
+            guiPageLabel = (chestPage + 1) + " / " + totalPages;
+        } else {
+            guiPageLabel = "";
+        }
     }
 
     private void addOutfitControls(int x, int w, int y) {
@@ -148,6 +220,10 @@ public final class AvatarEditorScreen extends Screen {
         gui.drawString(font, "Body / Style", 13, 29, 0xA8C0DA);
         gui.drawString(font, selected == OUTFIT ? "Wardrobe" : "Dimensions",
                 rightX + 8, 34, 0xA8C0DA);
+        if (selected == CHEST && !guiPageLabel.isEmpty()) {
+            gui.drawCenteredString(font, guiPageLabel, rightX + rightWidth / 2,
+                    height - 53, 0xBAC9D4);
+        }
 
         if (minecraft != null && minecraft.player != null && previewRight - previewLeft > 50) {
             int size = Math.max(15, Math.min(52, (height - 84) / 3)) + zoom;

@@ -6,16 +6,18 @@ import net.minecraft.world.phys.Vec3;
 import java.util.UUID;
 
 /**
- * Small, stable spring-damper simulation, independent of the player hitbox.
- * Runs once per client tick, not once per render pass (world + editor preview).
- * No third-party code or assets are used.
+ * Two independent stable spring channels, ticked only on the client.
+ * Shape, volume, and movement strength are independent knobs.
+ * Disabled motion has exactly zero offsets and preserves Steve's idle pose.
+ *
+ * This is visual-only and has no effect on gameplay or entity dimensions.
  */
 public final class AnatomyMotion {
     private static UUID currentPlayer;
-    private static float vertical;
-    private static float lateral;
-    private static float verticalVelocity;
-    private static float lateralVelocity;
+    private static final float[] vertical = new float[2];
+    private static final float[] horizontal = new float[2];
+    private static final float[] velocityY = new float[2];
+    private static final float[] velocityX = new float[2];
 
     private AnatomyMotion() {}
 
@@ -28,36 +30,61 @@ public final class AnatomyMotion {
             reset();
             currentPlayer = player.getUUID();
         }
+
         float strength = (float) AppearanceState.get(BodyDimension.CHEST_SWAY);
         if (strength <= .0001F) {
-            vertical = 0F;
-            lateral = 0F;
-            verticalVelocity = 0F;
-            lateralVelocity = 0F;
+            zeroMotion();
             return;
         }
-        Vec3 velocity = player.getDeltaMovement();
-        double yaw = Math.toRadians(player.getYRot());
-        float sideways = (float) (velocity.x * Math.cos(yaw) + velocity.z * Math.sin(yaw));
-        float targetY = clamp((float) (-velocity.y * 2.0F) * strength, -.55F, .55F);
-        float targetX = clamp(-sideways * 1.7F * strength, -.35F, .35F);
 
-        // Discrete, critically-damped approximation. All units are model pixels.
-        verticalVelocity = (verticalVelocity + (targetY - vertical) * .23F) * .72F;
-        lateralVelocity = (lateralVelocity + (targetX - lateral) * .23F) * .72F;
-        vertical = clamp(vertical + verticalVelocity, -.65F, .65F);
-        lateral = clamp(lateral + lateralVelocity, -.40F, .40F);
+        // Independent stiffness/drag controls inspired by SpringBone systems,
+        // not third-party physical simulation code.
+        float firmness = (float) AppearanceState.get(BodyDimension.CHEST_FIRMNESS);
+        float damping = (float) AppearanceState.get(BodyDimension.CHEST_DAMPING);
+        float spring = .08F + .34F * firmness;
+        float drag = .52F + .43F * damping;
+        Vec3 motion = player.getDeltaMovement();
+        double yaw = Math.toRadians(player.getYRot());
+        float sideways = (float) (motion.x * Math.cos(yaw) + motion.z * Math.sin(yaw));
+
+        for (int i = 0; i < 2; i++) {
+            float side = i == 0 ? -1F : 1F;
+            // Slightly different phase/response prevents perfectly robotic
+            // mirroring while both channels share user-facing settings.
+            float response = i == 0 ? 1F : .96F;
+            float targetY = clamp((float)(-motion.y * 2.1F) * strength * response,
+                    -.65F, .65F);
+            float targetX = clamp(-sideways * 1.65F * strength
+                    + side * Math.abs(sideways) * .13F * strength, -.42F, .42F);
+            velocityY[i] = (velocityY[i] + (targetY - vertical[i]) * spring) * drag;
+            velocityX[i] = (velocityX[i] + (targetX - horizontal[i]) * spring) * drag;
+            vertical[i] = clamp(vertical[i] + velocityY[i], -.70F, .70F);
+            horizontal[i] = clamp(horizontal[i] + velocityX[i], -.45F, .45F);
+        }
     }
 
-    public static float verticalPixels() { return vertical; }
-    public static float lateralPixels() { return lateral; }
+    /** @param side -1: left; +1: right. */
+    public static float verticalPixels(int side) {
+        return vertical[side < 0 ? 0 : 1];
+    }
 
-    private static float clamp(float value, float min, float max) {
-        return Math.max(min, Math.min(max, value));
+    /** @param side -1: left; +1: right. */
+    public static float lateralPixels(int side) {
+        return horizontal[side < 0 ? 0 : 1];
+    }
+
+    private static float clamp(float v, float min, float max) {
+        return Math.max(min, Math.min(max, v));
+    }
+
+    private static void zeroMotion() {
+        for (int i = 0; i < 2; i++) {
+            vertical[i] = horizontal[i] = velocityY[i] = velocityX[i] = 0F;
+        }
     }
 
     public static void reset() {
-        vertical = lateral = verticalVelocity = lateralVelocity = 0F;
+        zeroMotion();
         currentPlayer = null;
     }
 }

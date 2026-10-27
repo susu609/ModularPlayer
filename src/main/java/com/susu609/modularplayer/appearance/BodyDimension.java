@@ -22,12 +22,21 @@ public enum BodyDimension {
     LEG_LENGTH(Group.LEGS, "Leg length", 1.0, 0.70, 1.45),
     LEG_DEPTH(Group.LEGS, "Leg depth", 1.0, 0.65, 1.60),
 
-    CHEST_VOLUME(Group.CHEST, "Projection", 0.0, 0.0, 1.8),
+    // Easy controls (shape style is chosen with its own button).
+    CHEST_STYLE(Group.CHEST, "Shape profile", 0.0, 0.0, 3.0),
+    CHEST_VOLUME(Group.CHEST, "Size / projection", 0.0, 0.0, 1.8),
+    CHEST_FULLNESS(Group.CHEST, "Fullness", 0.55, 0.0, 1.0),
+    CHEST_LIFT(Group.CHEST, "Lift", 0.0, -1.0, 1.0),
     CHEST_SEPARATION(Group.CHEST, "Separation", 0.0, 0.0, 2.0),
     CHEST_POSITION(Group.CHEST, "Vertical offset", 0.0, -2.0, 2.0),
     CHEST_WIDTH(Group.CHEST, "Width", 1.0, 0.65, 1.55),
     CHEST_HEIGHT(Group.CHEST, "Height", 1.0, 0.70, 1.40),
     CHEST_SWAY(Group.CHEST, "Soft motion", 0.0, 0.0, 1.0),
+    // Advanced controls: asymmetric size and spring tuning.
+    CHEST_LEFT_SCALE(Group.CHEST, "Left size", 1.0, 0.65, 1.50),
+    CHEST_RIGHT_SCALE(Group.CHEST, "Right size", 1.0, 0.65, 1.50),
+    CHEST_FIRMNESS(Group.CHEST, "Spring stiffness", 0.65, 0.05, 1.0),
+    CHEST_DAMPING(Group.CHEST, "Motion damping", 0.75, 0.10, 1.0),
 
     HIP_WIDTH(Group.HIPS, "Hip width", 1.0, 0.70, 1.60),
 
@@ -70,7 +79,16 @@ public enum BodyDimension {
         if (name().endsWith("_SEPARATION") || name().endsWith("_POSITION")) {
             return String.format(java.util.Locale.ROOT, "%.1f px", value);
         }
-        if (this == CHEST_SWAY) return Math.round(value * 100) + "%";
+        if (this == CHEST_SWAY || this == CHEST_FULLNESS
+                || this == CHEST_FIRMNESS || this == CHEST_DAMPING) {
+            return Math.round(value * 100) + "%";
+        }
+        if (this == CHEST_LIFT) {
+            return String.format(java.util.Locale.ROOT, "%+.2f", value);
+        }
+        if (this == CHEST_STYLE) {
+            return BreastShapeProfile.fromIndex(value).label();
+        }
         return String.format(java.util.Locale.ROOT, "%.2fx", value);
     }
 }

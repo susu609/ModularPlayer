@@ -3,6 +3,7 @@ package com.susu609.modularplayer.client.model;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.susu609.modularplayer.appearance.BodyDimension;
+import com.susu609.modularplayer.appearance.BreastShapeProfile;
 import com.susu609.modularplayer.client.AnatomyMotion;
 import com.susu609.modularplayer.client.AppearanceState;
 import net.minecraft.client.model.geom.ModelPart;
@@ -53,8 +54,12 @@ public final class AnatomySurface {
         float zBase = (rear ? 1F : -1F) * (2F * overallDepth + (dressed ? CLOTH_GAP : 0F));
         float outward = rear ? 1F : -1F;
         float uOffset = rear ? 32F : 20F; // torso back / front on Steve 64x64 atlas
-        float verticalSway = rear ? 0F : AnatomyMotion.verticalPixels();
-        float lateralSway = rear ? 0F : AnatomyMotion.lateralPixels();
+        BreastShapeProfile profile = BreastShapeProfile.fromIndex(
+                AppearanceState.get(BodyDimension.CHEST_STYLE));
+        float fullness = rear ? .50F : (float) AppearanceState.get(BodyDimension.CHEST_FULLNESS);
+        float lift = rear ? 0F : (float) AppearanceState.get(BodyDimension.CHEST_LIFT);
+        centerY -= lift;
+
 
         poses.pushPose();
         torso.translateAndRotate(poses);
@@ -62,22 +67,29 @@ public final class AnatomySurface {
         poses.scale(1F / 16F, 1F / 16F, 1F / 16F);
 
         for (int side : new int[]{-1, 1}) {
-            float cx = side * (2F * overallWidth + separation * .5F) + lateralSway * .35F;
-            float cy = centerY - verticalSway * (side == 1 ? .95F : 1.05F);
+            float sideSize = rear ? 1F : (float) AppearanceState.get(
+                    side < 0 ? BodyDimension.CHEST_LEFT_SCALE : BodyDimension.CHEST_RIGHT_SCALE);
+            float width = rx * sideSize;
+            float height = ry * sideSize;
+            float projection = depth * sideSize;
+            float cx = side * (2F * overallWidth + separation * .5F)
+                    + (rear ? 0F : AnatomyMotion.lateralPixels(side) * .35F);
+            float cy = centerY - (rear ? 0F : AnatomyMotion.verticalPixels(side));
+
             for (int ring = 0; ring < RINGS; ring++) {
                 float inner = (float) ring / RINGS;
                 float outer = (float) (ring + 1) / RINGS;
                 for (int angle = 0; angle < ANGLES; angle++) {
                     double start = Math.PI * 2D * angle / ANGLES;
                     double end = Math.PI * 2D * (angle + 1) / ANGLES;
-                    Point a = point(inner, start, cx, cy, rx, ry, zBase, outward, depth,
-                            overallWidth, overallHeight, uOffset);
-                    Point b = point(inner, end, cx, cy, rx, ry, zBase, outward, depth,
-                            overallWidth, overallHeight, uOffset);
-                    Point c = point(outer, end, cx, cy, rx, ry, zBase, outward, depth,
-                            overallWidth, overallHeight, uOffset);
-                    Point d = point(outer, start, cx, cy, rx, ry, zBase, outward, depth,
-                            overallWidth, overallHeight, uOffset);
+                    Point a = point(inner, start, cx, cy, width, height, zBase, outward, projection,
+                            overallWidth, overallHeight, uOffset, rear, profile, fullness);
+                    Point b = point(inner, end, cx, cy, width, height, zBase, outward, projection,
+                            overallWidth, overallHeight, uOffset, rear, profile, fullness);
+                    Point c = point(outer, end, cx, cy, width, height, zBase, outward, projection,
+                            overallWidth, overallHeight, uOffset, rear, profile, fullness);
+                    Point d = point(outer, start, cx, cy, width, height, zBase, outward, projection,
+                            overallWidth, overallHeight, uOffset, rear, profile, fullness);
                     // Front faces -Z; rear faces +Z. Correct winding also
                     // keeps compatibility with culling render layers.
                     if (rear) {
@@ -99,24 +111,41 @@ public final class AnatomySurface {
 
     private static Point point(float radius, double angle, float cx, float cy,
                                float rx, float ry, float base, float out,
-                               float depth, float torsoWidth, float torsoHeight, float uOffset) {
+                               float depth, float torsoWidth, float torsoHeight, float uOffset,
+                               boolean rear, BreastShapeProfile profile, float fullness) {
         float u = radius * (float) Math.cos(angle);
         float v = radius * (float) Math.sin(angle);
         float x = cx + rx * u;
         float y = cy + ry * v;
-        // Quartic falloff: smooth join at silhouette with the torso plane.
-        float falloff = 1F - radius * radius;
-        float z = base + out * depth * falloff * falloff;
+        // Jenny is a shape reference, not a mesh dependency. All vertices
+        // come from an original parametric profile which is shared by
+        // bare skin and the fitted clothing shell.
+        float surface = rear
+                ? rearSurface(u, v)
+                : profile.depth(u, v, fullness);
+        float z = base + out * depth * surface;
+        float eps = .002F;
+        float gx = (rear ? rearSurface(u + eps, v) - rearSurface(u - eps, v)
+                          : profile.depth(u + eps, v, fullness)
+                           - profile.depth(u - eps, v, fullness)) / (2F * eps);
+        float gy = (rear ? rearSurface(u, v + eps) - rearSurface(u, v - eps)
+                          : profile.depth(u, v + eps, fullness)
+                           - profile.depth(u, v - eps, fullness)) / (2F * eps);
 
-        // The outward normal of z = base +/- depth*(1-r*r)^2.
-        float nx = depth * 4F * u * falloff / Math.max(rx, .001F);
-        float ny = depth * 4F * v * falloff / Math.max(ry, .001F);
+        // Outward normals on both sides: sign of z is handled in nz.
+        float nx = -depth * gx / Math.max(rx, .001F);
+        float ny = -depth * gy / Math.max(ry, .001F);
         float nz = out;
         float length = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
 
         float texU = (uOffset + 4F + x / Math.max(.01F, torsoWidth)) / TEXTURE_SIZE;
         float texV = (20F + y / Math.max(.01F, torsoHeight)) / TEXTURE_SIZE;
         return new Point(x, y, z, texU, texV, nx / length, ny / length, nz / length);
+    }
+
+    private static float rearSurface(float u, float v) {
+        float disc = Math.max(0F, 1F - u * u - v * v);
+        return disc * disc;
     }
 
     private static void vertex(VertexConsumer sink, PoseStack poses, Point point,

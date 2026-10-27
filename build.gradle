@@ -25,7 +25,12 @@ minecraft {
             property 'forge.logging.console.level', 'info'
             mods { modularplayer { source sourceSets.main } }
         }
-        client {}
+        // Client and Gradle run in separate Java processes. Limit the
+        // development client's heap to avoid excessive Windows commit usage.
+        client {
+            jvmArg '-Xms256m'
+            jvmArg '-Xmx2G'
+        }
         server { args '--nogui' }
     }
 }

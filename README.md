@@ -207,3 +207,59 @@ Implementation under `src/main/java/com/susu609/modularplayer/`:
 - `client/EditorHotkeys.java`: emote G key, state and physics tick.
 
 **Known limitations:** no native animation timeline editor; other clients cannot see this local player's emotes, and this version doesn't change the physical/collision height. Forge compilation and source tests do not prove rendering in a real client, so test the editor in-game at front/side/isometric views before calling the visuals final.
+
+
+## Troubleshooting: `runClient` exits with native memory / Windows error 1455
+
+An actual Windows 10 / Temurin 17 startup log (2026-10-27) reached the Forge
+resource reload stage, then Java terminated with:
+
+```text
+There is insufficient memory for the Java Runtime Environment to continue.
+Native memory allocation (mmap) failed to map 3129344 bytes
+os::commit_memory(...) failed ... (DOS error/errno=1455)
+```
+
+This is a **Windows system commit limit / page-file capacity** problem, not a
+Java compilation error and not evidence of a renderer/Mixin crash. The GL 4.6
+context had already initialized. First-run config messages such as
+`Incorrect key appearance.* was corrected from null` are defaults being
+created and are not the cause.
+
+### Windows fix (try this first)
+
+1. Save any work. Close unnecessary high-memory software and extra Minecraft
+   instances. Verify that the system drive has sufficient free space for a
+   page file (several GB at minimum).
+2. Press **Win+R**, run `sysdm.cpl`, then **Advanced** → **Performance /
+   Settings** → **Advanced** → **Virtual memory / Change**.
+3. Enable **Automatically manage paging file size for all drives**, or choose
+   **System managed size** on the Windows system drive and press **Set**.
+   If Windows auto-growth is too slow or an earlier custom pagefile was too
+   small, configure a larger **Custom size** appropriate for installed RAM and
+   available disk space. Microsoft recommends initial size around 1.5× RAM
+   when manually configuring a pagefile.
+4. Apply changes and **restart Windows**. Check Task Manager → Performance →
+   Memory → **Committed** to see whether memory usage is approaching its limit.
+5. Restart IntelliJ and retry **`gradle runClient`**. If Java crashes again,
+   inspect `run/hs_err_pid*.log`, especially physical memory and swap /
+   commit-limit data.
+
+### Project-side memory tuning (from this revision)
+
+- Gradle build heap max: **2 GiB** (previously 3 GiB);
+  `org.gradle.workers.max=2` reduces simultaneous memory pressure.
+- ForgeGradle `runClient` JVM: initial heap **256 MiB**, maximum heap
+  **2 GiB**, set using documented `minecraft.runs.client.jvmArg` entries.
+- Gradle and the game use **separate Java processes**, so `-Xmx2G` is a
+  limit **per JVM**; it is not a guarantee that Windows has sufficient total
+  committed memory. IntelliJ and integrated graphics also use RAM.
+- Raising Java `-Xmx` further is **not** the first fix for error 1455.
+
+If the PC has unusually little RAM, memory tuning cannot replace adequate
+page-file capacity. Do not delete `run/config` just because Forge generated
+missing default keys. The dev refmap warning can be harmless when running
+from the IDE; investigate separately only if an actual Mixin exception occurs.
+
+References: [Microsoft: memory allocation errors due to page-file growth](https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/slow-page-file-growth-memory-allocation-errors),
+[ForgeGradle 6 run configuration JVM options](https://docs.minecraftforge.net/en/fg-6.x/configuration/runs/).

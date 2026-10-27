@@ -179,3 +179,9 @@ Main source paths under `src/main/java/com/susu609/modularplayer/`:
 | `ClientConfig.java` | Forge config persistence for 60 axes |
 
 **Important limitations:** The selectable handle diagram is **2D in the right pane**, while the actual 3D avatar stays in the center. It is *not yet* 3D handle picking directly on the model or a complete vertex-level/Blockbench editor. The rig currently covers chest/buttock surface meshes; head, torso, arms and legs still use their previous dimension sliders and preset geometry. If a surface's projection is zero (flat Steve), increase Chest Size or Buttocks Projection before evaluating the rig deformation. Runtime visual QA is needed to confirm UI scaling, UV alignment and clothing clipping.
+
+
+### Rig editor visibility / reset
+
+- A flat Steve shape has projection 0. In Mesh Rig, **Show surface (draft)** sets the currently chosen chest/buttock projection to 0.85 for editing. This is a normal draft change, so **Cancel/ESC restores the original flat shape**.
+- Press **R** while Mesh Rig is selected to reset only the active mesh's 3D control-point offsets. The full avatar and other mesh parts are preserved until the global Reset button is chosen.

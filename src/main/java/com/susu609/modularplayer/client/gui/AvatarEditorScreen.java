@@ -204,10 +204,21 @@ public final class AvatarEditorScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Side: " + rigSide.name()),
                 b -> { rigSide = rigSide.next(); rebuildWidgets(); })
                 .bounds(x, y + 25, w, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Axis: " + rigAxis.name()),
+        // A flat Steve surface has no polygons to pick visually. Provide an
+        // explicit, reversible preview action rather than silently modifying
+        // the avatar when the user opens this tab.
+        BodyDimension projection = rigPart == MeshRig.Part.CHEST
+                ? BodyDimension.CHEST_VOLUME : BodyDimension.BUTTOCK_VOLUME;
+        boolean flat = AppearanceState.get(projection) < .001;
+        addRenderableWidget(Button.builder(Component.literal(
+                        flat ? "Show surface (draft)" : "Axis: " + rigAxis.name()),
                 b -> {
-                    rigAxis = MeshRig.Axis.values()[(rigAxis.ordinal() + 1)
-                            % MeshRig.Axis.values().length];
+                    if (flat) {
+                        AppearanceState.set(projection, .85);
+                    } else {
+                        rigAxis = MeshRig.Axis.values()[(rigAxis.ordinal() + 1)
+                                % MeshRig.Axis.values().length];
+                    }
                     rebuildWidgets();
                 }).bounds(x, y + 50, w, 20).build());
 
@@ -452,6 +463,12 @@ public final class AvatarEditorScreen extends Screen {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_I) {
             camera.resetIsometric();
+            rebuildWidgets();
+            return true;
+        }
+        if (selected == MESH && keyCode == GLFW.GLFW_KEY_R) {
+            AppearanceState.rig().reset(rigPart);
+            rigStatus = "Reset " + rigPart.name() + " mesh (draft)";
             rebuildWidgets();
             return true;
         }

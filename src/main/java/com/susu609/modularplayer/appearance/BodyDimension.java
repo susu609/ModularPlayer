@@ -46,7 +46,7 @@ public enum BodyDimension {
     BUTTOCK_WIDTH(Group.BUTTOCKS, "Width", 1.0, 0.65, 1.60),
     BUTTOCK_HEIGHT(Group.BUTTOCKS, "Height", 1.0, 0.70, 1.40);
 
-    public enum Group { HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, OUTFIT }
+    public enum Group { HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, MESH, OUTFIT }
 
     private final Group group;
     private final String label;

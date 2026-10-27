@@ -148,3 +148,34 @@ The Character Editor opened by **P** now starts with a **3/4 isometric-style** p
 - No offscreen image exporter and no separate custom projection-matrix override is included. This is a camera-angle trial; exact pixel-perfect orthographic render fidelity still requires an in-game visual check.
 
 Modify: `src/main/java/com/susu609/modularplayer/client/gui/PreviewCamera.java` for camera rotations and `AvatarEditorScreen.java` for the view selector/UI.
+
+
+## v0.8: Mesh Rig Editor (weighted control cage)
+
+**Open: P → Mesh Rig** in the Minecraft 1.20.1 client Character Editor.
+
+This milestone edits the **procedurally generated chest and buttock surfaces** using weighted 3D control-point deformation, not imported hardcoded model data.
+
+- Choose **Mesh: CHEST** or **BUTTOCKS** in the right panel.
+- Choose **Side: BOTH / LEFT / RIGHT**. BOTH mirrors horizontal (X) offsets for symmetry; vertical (Y) and depth (Z) offsets apply equally.
+- The small **2D control-cage map in the right panel** contains **5 selectable handles per lobe**: Center, Upper, Lower, Inner, Outer. Click a handle, then drag it horizontally/vertically to adjust X/Y. The avatar preview in the center updates immediately.
+- The **Axis X/Y/Z** button selects which numerical offset the nearby slider controls. Select **Z** to adjust depth; its range is ±2.5 model pixels.
+- Select a **Preset slot 1/2/3**, then **Save preset** to write `config/modularplayer/rig-slot-N.json`. **Load preset** reads the file into the current unsaved draft.
+- **Save** in the screen footer persists the current avatar and all control-point offsets in Forge's `config/modularplayer-client.toml`; **Cancel/ESC** restores the in-memory state from before opening the screen (it does not delete previously saved JSON presets).
+- **Reset** returns the whole avatar and control cage to the Steve defaults (press Save to persist).
+
+The cage lives at `appearance/MeshRig.java`, stores 2 body parts × 2 sides × 5 handles × 3 axes = **60 editable scalar values**, and smoothly interpolates offsets across each surface. Values taper to zero at the outer rim to reduce holes. The same deformed vertices are used for bare body and garment rendering.
+
+Main source paths under `src/main/java/com/susu609/modularplayer/`:
+
+| File | Purpose |
+| --- | --- |
+| `appearance/MeshRig.java` | Control points, safe ranges, interpolation |
+| `client/gui/AvatarEditorScreen.java` | Mesh Rig tab, point selection and 2D drag controls |
+| `client/gui/RigAxisSlider.java` | X/Y/Z slider and mirrored selection mode |
+| `client/model/AnatomySurface.java` | Applies deformations to actual rendered mesh vertices and recalculates normals |
+| `client/MeshRigPresets.java` | JSON preset save/load (3 fixed, validated file names) |
+| `client/AppearanceState.java` | Transactional live preview and Save/Cancel |
+| `ClientConfig.java` | Forge config persistence for 60 axes |
+
+**Important limitations:** The selectable handle diagram is **2D in the right pane**, while the actual 3D avatar stays in the center. It is *not yet* 3D handle picking directly on the model or a complete vertex-level/Blockbench editor. The rig currently covers chest/buttock surface meshes; head, torso, arms and legs still use their previous dimension sliders and preset geometry. If a surface's projection is zero (flat Steve), increase Chest Size or Buttocks Projection before evaluating the rig deformation. Runtime visual QA is needed to confirm UI scaling, UV alignment and clothing clipping.

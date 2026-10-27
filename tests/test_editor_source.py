@@ -96,6 +96,44 @@ class EditorSourcesTest(unittest.TestCase):
         self.assertIn('GLFW.GLFW_KEY_I', editor)
         self.assertIn('camera.resetIsometric()', editor)
 
+    def test_mesh_rig_editor_control_cage(self):
+        mesh = source('appearance/MeshRig.java')
+        geometry = source('client/model/AnatomySurface.java')
+        screen = source('client/gui/AvatarEditorScreen.java')
+        slider = source('client/gui/RigAxisSlider.java')
+        state = source('client/AppearanceState.java')
+        config = source('ClientConfig.java')
+        for item in ('CENTER', 'UPPER', 'LOWER', 'INNER', 'OUTER',
+                     'CHEST', 'BUTTOCKS', 'LEFT', 'RIGHT', 'X', 'Y', 'Z'):
+            self.assertIn(item, mesh)
+        self.assertIn('public Offset sample(', mesh)
+        self.assertIn('if (radiusSquared >= 1F) return Offset.ZERO;', mesh)
+        self.assertIn('MeshRig.Offset deform = rig.sample(', geometry)
+        self.assertIn('float u =', geometry)
+        self.assertIn('float v =', geometry)
+        self.assertIn('MESH, OUTFIT', screen)
+        self.assertIn('drawMeshRigMap(gui)', screen)
+        self.assertIn('clickRigMap(mouseX, mouseY)', screen)
+        self.assertIn('rigMapDragging', screen)
+        self.assertIn('new RigAxisSlider(', screen)
+        self.assertIn('axis == MeshRig.Axis.X ? -value : value', slider)
+        self.assertIn('MeshRig rigBeforeEdit;', state)
+        self.assertIn('rigBeforeEdit = rig().copy()', state)
+        self.assertIn('rig = rigBeforeEdit;', state)
+        self.assertIn('RIG_OFFSETS', config)
+        self.assertIn('ClientConfig.save(current(), dimensions, rig())', state)
+
+    def test_mesh_preset_slots_are_safe_and_explicit(self):
+        code = source('client/MeshRigPresets.java')
+        gui = source('client/gui/AvatarEditorScreen.java')
+        self.assertIn('slot < 1 || slot > 3', code)
+        self.assertIn('FMLPaths.CONFIGDIR.get()', code)
+        self.assertIn('Files.size(path) > 32_768L', code)
+        self.assertIn('data.addProperty("version", 1)', code)
+        self.assertIn('Float.isFinite(offset)', code)
+        self.assertIn('MeshRigPresets.save(rigSlot, AppearanceState.rig())', gui)
+        self.assertIn('AppearanceState.setRig(MeshRigPresets.load(rigSlot))', gui)
+
     def test_local_only_scope(self):
         self.assertIn('ClientTarget.appliesTo(player)',
                       source('client/model/ModularPlayerModel.java'))

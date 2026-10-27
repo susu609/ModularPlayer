@@ -2,6 +2,9 @@ package com.susu609.modularplayer.client.gui;
 
 import com.susu609.modularplayer.appearance.Appearance;
 import com.susu609.modularplayer.appearance.BodyDimension;
+import com.susu609.modularplayer.appearance.MeshRig;
+import com.susu609.modularplayer.client.MeshRigPresets;
+import java.io.IOException;
 import com.susu609.modularplayer.appearance.BreastShapeProfile;
 import com.susu609.modularplayer.client.ChestPreset;
 import com.susu609.modularplayer.client.AppearanceState;
@@ -20,9 +23,9 @@ import static com.susu609.modularplayer.appearance.BodyDimension.Group.*;
  */
 public final class AvatarEditorScreen extends Screen {
     private static final BodyDimension.Group[] TABS =
-            { HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, OUTFIT };
+            { HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, MESH, OUTFIT };
     private static final String[] TAB_NAMES =
-            { "Head", "Torso", "Arms", "Legs", "Chest", "Hips", "Buttocks", "Clothes" };
+            { "Head", "Torso", "Arms", "Legs", "Chest", "Hips", "Buttocks", "Mesh Rig", "Clothes" };
     private BodyDimension.Group selected = CHEST;
     private boolean chestAdvanced;
     private int chestPage;
@@ -30,6 +33,16 @@ public final class AvatarEditorScreen extends Screen {
     private String guiPageLabel = "";
     private boolean previewDragging;
     private final PreviewCamera camera = new PreviewCamera();
+    private MeshRig.Part rigPart = MeshRig.Part.CHEST;
+    private RigAxisSlider.SideMode rigSide = RigAxisSlider.SideMode.BOTH;
+    private MeshRig.Handle rigHandle = MeshRig.Handle.CENTER;
+    private MeshRig.Axis rigAxis = MeshRig.Axis.Z;
+    private int rigSlot = 1;
+    private boolean rigMapDragging;
+    private int rigMapX;
+    private int rigMapY;
+    private int rigMapRadius;
+    private String rigStatus = "";
     private int zoom = 0;
     private int leftWidth;
     private int rightWidth;
@@ -80,6 +93,8 @@ public final class AvatarEditorScreen extends Screen {
             addOutfitControls(controlX, controlWidth, y);
         } else if (selected == CHEST) {
             addChestControls(controlX, controlWidth, y);
+        } else if (selected == MESH) {
+            addMeshRigControls(controlX, controlWidth, y);
         } else {
             if (selected == HEAD || selected == TORSO || selected == ARMS || selected == LEGS) {
                 addRenderableWidget(Button.builder(
@@ -177,6 +192,61 @@ public final class AvatarEditorScreen extends Screen {
         }
     }
 
+    /** Weighted surface-cage editor: select and drag handles in the 2D map. */
+    private void addMeshRigControls(int x, int w, int y) {
+        addRenderableWidget(Button.builder(Component.literal("Mesh: " + rigPart.name()),
+                b -> {
+                    rigPart = rigPart == MeshRig.Part.CHEST
+                            ? MeshRig.Part.BUTTOCKS : MeshRig.Part.CHEST;
+                    rigHandle = MeshRig.Handle.CENTER;
+                    rebuildWidgets();
+                }).bounds(x, y, w, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Side: " + rigSide.name()),
+                b -> { rigSide = rigSide.next(); rebuildWidgets(); })
+                .bounds(x, y + 25, w, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Axis: " + rigAxis.name()),
+                b -> {
+                    rigAxis = MeshRig.Axis.values()[(rigAxis.ordinal() + 1)
+                            % MeshRig.Axis.values().length];
+                    rebuildWidgets();
+                }).bounds(x, y + 50, w, 20).build());
+
+        int sliderY = Math.max(y + 104, height - 108);
+        rigMapX = x + w / 2;
+        rigMapY = (y + 78 + sliderY - 12) / 2;
+        rigMapRadius = Math.max(0, Math.min(35, (sliderY - (y + 80)) / 2 - 5));
+        addRenderableWidget(new RigAxisSlider(x, sliderY, w,
+                rigPart, rigHandle, rigAxis, rigSide));
+
+        addRenderableWidget(Button.builder(Component.literal("Preset slot: " + rigSlot),
+                b -> { rigSlot = rigSlot % 3 + 1; rebuildWidgets(); })
+                .bounds(x, height - 81, w, 20).build());
+        int buttonWidth = (w - 4) / 2;
+        addRenderableWidget(Button.builder(Component.literal("Save preset"), b -> saveRigSlot())
+                .bounds(x, height - 56, buttonWidth, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Load preset"), b -> loadRigSlot())
+                .bounds(x + buttonWidth + 4, height - 56, buttonWidth, 20).build());
+    }
+
+    private void saveRigSlot() {
+        try {
+            MeshRigPresets.save(rigSlot, AppearanceState.rig());
+            rigStatus = "Saved slot " + rigSlot;
+        } catch (IOException ex) {
+            rigStatus = "Save failed: " + ex.getMessage();
+        }
+    }
+
+    private void loadRigSlot() {
+        try {
+            AppearanceState.setRig(MeshRigPresets.load(rigSlot));
+            rigStatus = "Loaded slot " + rigSlot + " (press Save to apply)";
+            rebuildWidgets();
+        } catch (IOException ex) {
+            rigStatus = "Load failed: " + ex.getMessage();
+        }
+    }
+
     private void addOutfitControls(int x, int w, int y) {
         addRenderableWidget(Button.builder(Component.literal("Hat: " + AppearanceState.current().headwear()),
                 b -> {
@@ -235,6 +305,10 @@ public final class AvatarEditorScreen extends Screen {
                     height - 53, 0xBAC9D4);
         }
 
+        if (selected == MESH) {
+            drawMeshRigMap(gui);
+        }
+
         if (minecraft != null && minecraft.player != null && previewRight - previewLeft > 50) {
             int size = Math.max(15, Math.min(52, (height - 84) / 3)) + zoom;
             int bottom = height - 53;
@@ -249,12 +323,80 @@ public final class AvatarEditorScreen extends Screen {
         super.render(gui, mouseX, mouseY, partialTick);
     }
 
+    private MeshRig.Side mapSide() {
+        return rigSide == RigAxisSlider.SideMode.RIGHT
+                ? MeshRig.Side.RIGHT : MeshRig.Side.LEFT;
+    }
+
+    private int handleX(MeshRig.Handle handle) {
+        MeshRig.Offset offset = AppearanceState.rig().get(rigPart, mapSide(), handle);
+        return rigMapX + Math.round(handle.u(mapSide()) * rigMapRadius * .84F
+                + offset.x() * 2.8F);
+    }
+
+    private int handleY(MeshRig.Handle handle) {
+        MeshRig.Offset offset = AppearanceState.rig().get(rigPart, mapSide(), handle);
+        return rigMapY + Math.round(handle.v() * rigMapRadius * .84F
+                + offset.y() * 2.8F);
+    }
+
+    /** Compact control-cage diagram beside the live 3D preview. */
+    private void drawMeshRigMap(GuiGraphics gui) {
+        int r = rigMapRadius;
+        if (r < 12) {
+            gui.drawCenteredString(font, "Increase GUI height for rig map",
+                    rigMapX, rigMapY, 0xFFC199);
+            return;
+        }
+        for (int degree = 0; degree < 360; degree += 6) {
+            double a = Math.toRadians(degree);
+            int px = rigMapX + (int) Math.round(r * Math.cos(a));
+            int py = rigMapY + (int) Math.round(r * Math.sin(a));
+            gui.fill(px, py, px + 2, py + 2, 0xFF617A95);
+        }
+        gui.fill(rigMapX - r, rigMapY, rigMapX + r, rigMapY + 1, 0x55667799);
+        gui.fill(rigMapX, rigMapY - r, rigMapX + 1, rigMapY + r, 0x55667799);
+        for (MeshRig.Handle handle : MeshRig.Handle.values()) {
+            int px = handleX(handle), py = handleY(handle);
+            int color = handle == rigHandle ? 0xFFFFDD72 : 0xFF72C7E8;
+            gui.fill(px - 3, py - 3, px + 4, py + 4, 0xFF10202E);
+            gui.fill(px - 2, py - 2, px + 3, py + 3, color);
+        }
+        gui.drawCenteredString(font, rigHandle.label() + " / " + rigAxis.name(),
+                rigMapX, Math.max(126, rigMapY - r - 12), 0xFFC8DCE9);
+        if (!rigStatus.isEmpty()) {
+            gui.drawCenteredString(font, rigStatus, rigMapX,
+                    Math.min(height - 116, rigMapY + r + 6), 0xFFB5DEB7);
+        }
+    }
+
+    private boolean clickRigMap(double mouseX, double mouseY) {
+        if (selected != MESH || rigMapRadius < 12) return false;
+        MeshRig.Handle nearest = null;
+        double nearestSq = 100.0;
+        for (MeshRig.Handle handle : MeshRig.Handle.values()) {
+            double dx = mouseX - handleX(handle);
+            double dy = mouseY - handleY(handle);
+            double d2 = dx * dx + dy * dy;
+            if (d2 < nearestSq) {
+                nearest = handle;
+                nearestSq = d2;
+            }
+        }
+        if (nearest == null) return false;
+        rigHandle = nearest;
+        rigMapDragging = true;
+        rebuildWidgets();
+        return true;
+    }
+
     private boolean insidePreview(double x, double y) {
         return x >= previewLeft && x < previewRight && y >= 27 && y < height - 39;
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && clickRigMap(mouseX, mouseY)) return true;
         if (button == 0 && insidePreview(mouseX, mouseY)) {
             previewDragging = true;
             return true;
@@ -265,6 +407,16 @@ public final class AvatarEditorScreen extends Screen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button,
                                 double dragX, double dragY) {
+        if (rigMapDragging && button == 0) {
+            float step = .055F;
+            RigAxisSlider.write(rigPart, rigHandle, MeshRig.Axis.X, rigSide,
+                    RigAxisSlider.read(rigPart, rigHandle, MeshRig.Axis.X, rigSide)
+                            + (float) dragX * step);
+            RigAxisSlider.write(rigPart, rigHandle, MeshRig.Axis.Y, rigSide,
+                    RigAxisSlider.read(rigPart, rigHandle, MeshRig.Axis.Y, rigSide)
+                            + (float) dragY * step);
+            return true;
+        }
         if (previewDragging && button == 0) {
             camera.drag(dragX, dragY);
             return true;
@@ -274,6 +426,11 @@ public final class AvatarEditorScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && rigMapDragging) {
+            rigMapDragging = false;
+            rebuildWidgets();
+            return true;
+        }
         if (button == 0 && previewDragging) {
             previewDragging = false;
             return true;

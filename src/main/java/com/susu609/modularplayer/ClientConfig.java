@@ -2,6 +2,7 @@ package com.susu609.modularplayer;
 
 import com.susu609.modularplayer.appearance.Appearance;
 import com.susu609.modularplayer.appearance.BodyDimension;
+import com.susu609.modularplayer.appearance.MeshRig;
 import net.minecraftforge.common.ForgeConfigSpec;
 import java.util.EnumMap;
 import java.util.Map;
@@ -17,6 +18,8 @@ public final class ClientConfig {
     public static final ForgeConfigSpec.EnumValue<Appearance.Footwear> FEET;
     private static final Map<BodyDimension, ForgeConfigSpec.DoubleValue> DIMENSIONS =
             new EnumMap<>(BodyDimension.class);
+    private static final Map<MeshRig.Key, ForgeConfigSpec.DoubleValue> RIG_OFFSETS =
+            new java.util.HashMap<>();
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -40,6 +43,12 @@ public final class ClientConfig {
                     dimension.standard(), dimension.min(), dimension.max()));
         }
         b.pop();
+        b.push("mesh_rig");
+        for (MeshRig.Key key : MeshRig.keys()) {
+            RIG_OFFSETS.put(key, b.defineInRange(key.configName(), 0.0,
+                    -MeshRig.LIMIT, MeshRig.LIMIT));
+        }
+        b.pop();
         b.pop();
         SPEC = b.build();
     }
@@ -59,7 +68,16 @@ public final class ClientConfig {
         return values;
     }
 
-    public static void save(Appearance appearance, Map<BodyDimension, Double> dimensions) {
+    public static MeshRig readRig() {
+        MeshRig rig = new MeshRig();
+        for (MeshRig.Key key : MeshRig.keys()) {
+            rig.set(key, RIG_OFFSETS.get(key).get().floatValue());
+        }
+        return rig;
+    }
+
+    public static void save(Appearance appearance, Map<BodyDimension, Double> dimensions,
+                            MeshRig rig) {
         HEAD.set(appearance.head());
         TORSO.set(appearance.torso());
         ARMS.set(appearance.arms());
@@ -70,6 +88,9 @@ public final class ClientConfig {
         FEET.set(appearance.feet());
         for (BodyDimension dimension : BodyDimension.values()) {
             DIMENSIONS.get(dimension).set(dimension.clamp(dimensions.get(dimension)));
+        }
+        for (MeshRig.Key key : MeshRig.keys()) {
+            RIG_OFFSETS.get(key).set((double) rig.get(key));
         }
     }
 }

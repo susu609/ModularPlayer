@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.susu609.modularplayer.appearance.BodyDimension;
 import com.susu609.modularplayer.appearance.BreastShapeProfile;
+import com.susu609.modularplayer.appearance.MeshRig;
 import com.susu609.modularplayer.client.AnatomyMotion;
 import com.susu609.modularplayer.client.AppearanceState;
 import net.minecraft.client.model.geom.ModelPart;
@@ -61,12 +62,15 @@ public final class AnatomySurface {
         centerY -= lift;
 
 
+        MeshRig rig = AppearanceState.rig();
+        MeshRig.Part rigPart = rear ? MeshRig.Part.BUTTOCKS : MeshRig.Part.CHEST;
         poses.pushPose();
         torso.translateAndRotate(poses);
         // PlayerModel cube coordinates use 1 model pixel = 1/16 world unit.
         poses.scale(1F / 16F, 1F / 16F, 1F / 16F);
 
         for (int side : new int[]{-1, 1}) {
+            MeshRig.Side rigSide = side < 0 ? MeshRig.Side.LEFT : MeshRig.Side.RIGHT;
             float sideSize = rear ? 1F : (float) AppearanceState.get(
                     side < 0 ? BodyDimension.CHEST_LEFT_SCALE : BodyDimension.CHEST_RIGHT_SCALE);
             float width = rx * sideSize;
@@ -83,13 +87,17 @@ public final class AnatomySurface {
                     double start = Math.PI * 2D * angle / ANGLES;
                     double end = Math.PI * 2D * (angle + 1) / ANGLES;
                     Point a = point(inner, start, cx, cy, width, height, zBase, outward, projection,
-                            overallWidth, overallHeight, uOffset, rear, profile, fullness);
+                            overallWidth, overallHeight, uOffset, rear, profile, fullness,
+                            rig, rigPart, rigSide);
                     Point b = point(inner, end, cx, cy, width, height, zBase, outward, projection,
-                            overallWidth, overallHeight, uOffset, rear, profile, fullness);
+                            overallWidth, overallHeight, uOffset, rear, profile, fullness,
+                            rig, rigPart, rigSide);
                     Point c = point(outer, end, cx, cy, width, height, zBase, outward, projection,
-                            overallWidth, overallHeight, uOffset, rear, profile, fullness);
+                            overallWidth, overallHeight, uOffset, rear, profile, fullness,
+                            rig, rigPart, rigSide);
                     Point d = point(outer, start, cx, cy, width, height, zBase, outward, projection,
-                            overallWidth, overallHeight, uOffset, rear, profile, fullness);
+                            overallWidth, overallHeight, uOffset, rear, profile, fullness,
+                            rig, rigPart, rigSide);
                     // Front faces -Z; rear faces +Z. Correct winding also
                     // keeps compatibility with culling render layers.
                     if (rear) {
@@ -109,39 +117,67 @@ public final class AnatomySurface {
         poses.popPose();
     }
 
+    /**
+     * Generate actual deformed vertices and normals from the same control cage.
+     * This method is called for both bare skin and the fitted outfit shell.
+     */
     private static Point point(float radius, double angle, float cx, float cy,
                                float rx, float ry, float base, float out,
                                float depth, float torsoWidth, float torsoHeight, float uOffset,
-                               boolean rear, BreastShapeProfile profile, float fullness) {
+                               boolean rear, BreastShapeProfile profile, float fullness,
+                               MeshRig rig, MeshRig.Part part, MeshRig.Side side) {
         float u = radius * (float) Math.cos(angle);
         float v = radius * (float) Math.sin(angle);
-        float x = cx + rx * u;
-        float y = cy + ry * v;
-        // Jenny is a shape reference, not a mesh dependency. All vertices
-        // come from an original parametric profile which is shared by
-        // bare skin and the fitted clothing shell.
-        float surface = rear
-                ? rearSurface(u, v)
-                : profile.depth(u, v, fullness);
-        float z = base + out * depth * surface;
+        Position p = position(u, v, cx, cy, rx, ry, base, out,
+                depth, rear, profile, fullness, rig, part, side);
+
+        // Include X/Y/Z rig displacement when calculating per-vertex normals.
         float eps = .002F;
-        float gx = (rear ? rearSurface(u + eps, v) - rearSurface(u - eps, v)
-                          : profile.depth(u + eps, v, fullness)
-                           - profile.depth(u - eps, v, fullness)) / (2F * eps);
-        float gy = (rear ? rearSurface(u, v + eps) - rearSurface(u, v - eps)
-                          : profile.depth(u, v + eps, fullness)
-                           - profile.depth(u, v - eps, fullness)) / (2F * eps);
+        Position uMin = position(u - eps, v, cx, cy, rx, ry, base, out,
+                depth, rear, profile, fullness, rig, part, side);
+        Position uMax = position(u + eps, v, cx, cy, rx, ry, base, out,
+                depth, rear, profile, fullness, rig, part, side);
+        Position vMin = position(u, v - eps, cx, cy, rx, ry, base, out,
+                depth, rear, profile, fullness, rig, part, side);
+        Position vMax = position(u, v + eps, cx, cy, rx, ry, base, out,
+                depth, rear, profile, fullness, rig, part, side);
+        float ux = uMax.x - uMin.x, uy = uMax.y - uMin.y, uz = uMax.z - uMin.z;
+        float vx = vMax.x - vMin.x, vy = vMax.y - vMin.y, vz = vMax.z - vMin.z;
+        float nx = uy * vz - uz * vy;
+        float ny = uz * vx - ux * vz;
+        float nz = ux * vy - uy * vx;
+        float orientation = rear ? 1F : -1F;
+        nx *= orientation;
+        ny *= orientation;
+        nz *= orientation;
+        float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (len < 1.0e-7F) {
+            nx = ny = 0F;
+            nz = out;
+        } else {
+            nx /= len;
+            ny /= len;
+            nz /= len;
+        }
 
-        // Outward normals on both sides: sign of z is handled in nz.
-        float nx = -depth * gx / Math.max(rx, .001F);
-        float ny = -depth * gy / Math.max(ry, .001F);
-        float nz = out;
-        float length = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-
-        float texU = (uOffset + 4F + x / Math.max(.01F, torsoWidth)) / TEXTURE_SIZE;
-        float texV = (20F + y / Math.max(.01F, torsoHeight)) / TEXTURE_SIZE;
-        return new Point(x, y, z, texU, texV, nx / length, ny / length, nz / length);
+        float texU = (uOffset + 4F + p.x / Math.max(.01F, torsoWidth)) / TEXTURE_SIZE;
+        float texV = (20F + p.y / Math.max(.01F, torsoHeight)) / TEXTURE_SIZE;
+        return new Point(p.x, p.y, p.z, texU, texV, nx, ny, nz);
     }
+
+    private static Position position(float u, float v, float cx, float cy,
+                                     float rx, float ry, float base, float out,
+                                     float depth, boolean rear,
+                                     BreastShapeProfile profile, float fullness,
+                                     MeshRig rig, MeshRig.Part part, MeshRig.Side side) {
+        float surface = rear ? rearSurface(u, v) : profile.depth(u, v, fullness);
+        MeshRig.Offset deform = rig.sample(part, side, u, v);
+        return new Position(cx + rx * u + deform.x(),
+                cy + ry * v + deform.y(),
+                base + out * (depth * surface + deform.z()));
+    }
+
+    private record Position(float x, float y, float z) {}
 
     private static float rearSurface(float u, float v) {
         float disc = Math.max(0F, 1F - u * u - v * v);

@@ -3,6 +3,7 @@ package com.susu609.modularplayer.client;
 import com.susu609.modularplayer.ClientConfig;
 import com.susu609.modularplayer.appearance.Appearance;
 import com.susu609.modularplayer.appearance.BodyDimension;
+import com.susu609.modularplayer.appearance.MeshRig;
 import java.util.EnumMap;
 
 /** In-memory live preview and save/cancel transaction for the in-game editor. */
@@ -11,6 +12,8 @@ public final class AppearanceState {
     private static EnumMap<BodyDimension, Double> dimensions;
     private static Appearance beforeEdit;
     private static EnumMap<BodyDimension, Double> dimensionsBeforeEdit;
+    private static MeshRig rig;
+    private static MeshRig rigBeforeEdit;
 
     private AppearanceState() {}
 
@@ -33,26 +36,39 @@ public final class AppearanceState {
         current = next;
     }
 
+    public static MeshRig rig() {
+        if (rig == null) rig = ClientConfig.readRig();
+        return rig;
+    }
+
+    public static void setRig(MeshRig replacement) {
+        rig = replacement.copy();
+    }
+
     public static void beginEdit() {
         beforeEdit = current();
         if (dimensions == null) dimensions = ClientConfig.readDimensions();
         dimensionsBeforeEdit = new EnumMap<>(dimensions);
+        rigBeforeEdit = rig().copy();
     }
 
     public static void cancelEdit() {
         if (beforeEdit != null) {
             current = beforeEdit;
             dimensions = dimensionsBeforeEdit;
+            rig = rigBeforeEdit;
         }
         beforeEdit = null;
         dimensionsBeforeEdit = null;
+        rigBeforeEdit = null;
     }
 
     public static void saveEdit() {
         if (dimensions == null) dimensions = ClientConfig.readDimensions();
-        ClientConfig.save(current(), dimensions);
+        ClientConfig.save(current(), dimensions, rig());
         beforeEdit = null;
         dimensionsBeforeEdit = null;
+        rigBeforeEdit = null;
     }
 
     public static void defaults() {
@@ -62,6 +78,7 @@ public final class AppearanceState {
                 Appearance.Bottom.STEVE_PANTS, Appearance.Footwear.NONE);
         if (dimensions == null) dimensions = ClientConfig.readDimensions();
         for (BodyDimension d : BodyDimension.values()) dimensions.put(d, d.standard());
+        rig = new MeshRig();
     }
 
     public static void cycleTorso() {

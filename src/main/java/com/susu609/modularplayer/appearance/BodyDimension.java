@@ -1,8 +1,9 @@
 package com.susu609.modularplayer.appearance;
 
 /**
- * Independent appearance dimensions. A value of 1 is the Steve baseline.
- * All values are visual only and never alter collision, eye height or reach.
+ * Independent appearance measurements. General axes are relative to Steve.
+ * Anatomy offsets are model pixels, optional soft motion uses 0..1.
+ * These are cosmetic only: never change collision, eye height or reach.
  */
 public enum BodyDimension {
     HEAD_WIDTH(Group.HEAD, "Head width", 1.0, 0.65, 1.60),
@@ -21,11 +22,22 @@ public enum BodyDimension {
     LEG_LENGTH(Group.LEGS, "Leg length", 1.0, 0.70, 1.45),
     LEG_DEPTH(Group.LEGS, "Leg depth", 1.0, 0.65, 1.60),
 
-    CHEST_VOLUME(Group.SHAPE, "Chest", 0.0, 0.0, 1.8),
-    BUTTOCK_VOLUME(Group.SHAPE, "Buttocks", 0.0, 0.0, 1.8),
-    HIP_WIDTH(Group.SHAPE, "Hips", 1.0, 0.70, 1.60);
+    CHEST_VOLUME(Group.CHEST, "Projection", 0.0, 0.0, 1.8),
+    CHEST_SEPARATION(Group.CHEST, "Separation", 0.0, 0.0, 2.0),
+    CHEST_POSITION(Group.CHEST, "Vertical offset", 0.0, -2.0, 2.0),
+    CHEST_WIDTH(Group.CHEST, "Width", 1.0, 0.65, 1.55),
+    CHEST_HEIGHT(Group.CHEST, "Height", 1.0, 0.70, 1.40),
+    CHEST_SWAY(Group.CHEST, "Soft motion", 0.0, 0.0, 1.0),
 
-    public enum Group { HEAD, TORSO, ARMS, LEGS, SHAPE, OUTFIT }
+    HIP_WIDTH(Group.HIPS, "Hip width", 1.0, 0.70, 1.60),
+
+    BUTTOCK_VOLUME(Group.BUTTOCKS, "Projection", 0.0, 0.0, 1.8),
+    BUTTOCK_SEPARATION(Group.BUTTOCKS, "Separation", 0.0, 0.0, 2.0),
+    BUTTOCK_POSITION(Group.BUTTOCKS, "Vertical offset", 0.0, -1.5, 1.5),
+    BUTTOCK_WIDTH(Group.BUTTOCKS, "Width", 1.0, 0.65, 1.60),
+    BUTTOCK_HEIGHT(Group.BUTTOCKS, "Height", 1.0, 0.70, 1.40);
+
+    public enum Group { HEAD, TORSO, ARMS, LEGS, CHEST, HIPS, BUTTOCKS, OUTFIT }
 
     private final Group group;
     private final String label;
@@ -53,14 +65,12 @@ public enum BodyDimension {
 
     public String configName() { return name().toLowerCase(java.util.Locale.ROOT); }
 
-    /** Sliders show actual pixel offsets rather than misleading percentages. */
+    /** Slider labels distinguish physical offsets, factors, and motion strength. */
     public String format(double value) {
         if (name().endsWith("_SEPARATION") || name().endsWith("_POSITION")) {
             return String.format(java.util.Locale.ROOT, "%.1f px", value);
         }
-        if (this == CHEST_SWAY) {
-            return Math.round(value * 100) + "%";
-        }
+        if (this == CHEST_SWAY) return Math.round(value * 100) + "%";
         return String.format(java.util.Locale.ROOT, "%.2fx", value);
     }
 }

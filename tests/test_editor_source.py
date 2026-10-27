@@ -38,9 +38,12 @@ class EditorSourcesTest(unittest.TestCase):
             self.assertIn(name, model)
 
     def test_chest_and_butt_geometry_own_cubes(self):
-        src = source('client/model/BodyGeometry.java')
-        for name in ('chest_left','chest_right','glute_left','glute_right'):
-            self.assertIn('"' + name + '"',src)
+        surface = source('client/model/AnatomySurface.java')
+        self.assertIn('private static final int ANGLES = 16;', surface)
+        self.assertIn('private static final int RINGS = 5;', surface)
+        self.assertIn('for (int side : new int[]{-1, 1})', surface)
+        self.assertIn('float falloff = 1F - radius * radius;', surface)
+        self.assertIn('pose', surface.lower())
 
     def test_reference_chest_controls_and_motion(self):
         dimension_src = source('appearance/BodyDimension.java')
@@ -52,8 +55,8 @@ class EditorSourcesTest(unittest.TestCase):
             self.assertIn(name, dimension_src)
             self.assertIn(name, model_src if name != 'CHEST_SWAY' else motion)
         self.assertIn('AnatomyMotion.tick(mc.player)', source('client/EditorHotkeys.java'))
-        self.assertIn('float clothingMultiplier', model_src)
-        self.assertIn('renderAnatomy(', model_src)
+        self.assertIn('AnatomySurface.render(', model_src)
+        self.assertIn('AnatomySurface.render(', model_src)
 
     def test_local_only_scope(self):
         self.assertIn('ClientTarget.appliesTo(player)',

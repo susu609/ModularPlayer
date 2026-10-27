@@ -50,17 +50,8 @@ public final class BodyGeometry {
         group.addOrReplaceChild("left_leg", CubeListBuilder.create().texOffs(16, 48)
                 .addBox(legX, 0, -2, legWidth, 12, 4), PartPose.ZERO);
 
-        // Distinct meshes, so breast and buttock depth can be changed without
-        // scaling the entire torso. UVs reuse local regions of the body atlas.
-        group.addOrReplaceChild("chest_left", CubeListBuilder.create().texOffs(16, 19)
-                .addBox(-4.0F, 2.5F, -4.0F, 3.9F, 3.8F, 2.05F), PartPose.ZERO);
-        group.addOrReplaceChild("chest_right", CubeListBuilder.create().texOffs(16, 19)
-                .addBox(0.1F, 2.5F, -4.0F, 3.9F, 3.8F, 2.05F), PartPose.ZERO);
-        group.addOrReplaceChild("glute_left", CubeListBuilder.create().texOffs(16, 24)
-                .addBox(-4.0F, 8.0F, 1.95F, 3.9F, 4.0F, 2.05F), PartPose.ZERO);
-        group.addOrReplaceChild("glute_right", CubeListBuilder.create().texOffs(16, 24)
-                .addBox(0.1F, 8.0F, 1.95F, 3.9F, 4.0F, 2.05F), PartPose.ZERO);
-
+        // Chest and glute surfaces are now tessellated at runtime by
+        // AnatomySurface instead of baked rectangular ModelPart cubes.
         CubeDeformation gap = new CubeDeformation(0.26F);
         group.addOrReplaceChild("hat", CubeListBuilder.create().texOffs(32, 0)
                 .addBox(headX, -8, -4, headWidth, 8, 8, gap), PartPose.ZERO);

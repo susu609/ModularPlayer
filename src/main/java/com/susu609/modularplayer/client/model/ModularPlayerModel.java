@@ -86,14 +86,10 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
 
     private void renderCurves(PoseStack pose, VertexConsumer vertices, int light, int overlay,
                               boolean glutes, float red, float green, float blue, float alpha) {
-        float volume = (float) AppearanceState.get(glutes ? BUTTOCK_VOLUME : CHEST_VOLUME);
-        if (volume <= 0.001F) return;
-        Appearance.Shape shape = AppearanceState.current().torso();
-        // Neutral volume is zero: extra meshes are fully omitted.
-        for (String name : anatomyNames(glutes)) {
-            renderAnatomy(shape, name, glutes, volume, 1F, pose,
-                    vertices, light, overlay, red, green, blue, alpha);
-        }
+        // Both skin and clothing use the same procedural surface, without
+        // importing Jenny's meshes, UVs or animations.
+        AnatomySurface.render(pose, vertices, body, glutes, false,
+                light, overlay, red, green, blue, alpha);
     }
 
     private ModelPart part(Appearance.Shape shape, String name, ModelPart source) {
@@ -183,57 +179,12 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
                 light, OverlayTexture.NO_OVERLAY, 1F, 1F, 1F, 1F);
     }
 
-    private static String[] anatomyNames(boolean glutes) {
-        return glutes ? new String[]{"glute_left", "glute_right"}
-                      : new String[]{"chest_left", "chest_right"};
-    }
-
-    /**
-     * Shared placement for skin geometry and garment geometry, so clothing
-     * follows every shape slider and optional spring movement.
-     */
-    private void renderAnatomy(Appearance.Shape shape, String name, boolean glutes,
-                               float projection, float clothingMultiplier, PoseStack pose,
-                               VertexConsumer vertices, int light, int overlay,
-                               float red, float green, float blue, float alpha) {
-        float anatomicalWidth = (float) AppearanceState.get(glutes ? BUTTOCK_WIDTH : CHEST_WIDTH);
-        float anatomicalHeight = (float) AppearanceState.get(glutes ? BUTTOCK_HEIGHT : CHEST_HEIGHT);
-        float width = (float) AppearanceState.get(glutes ? HIP_WIDTH : TORSO_WIDTH)
-                * anatomicalWidth;
-        float height = (float) AppearanceState.get(TORSO_HEIGHT) * anatomicalHeight;
-        float depth = Math.max(.05F, projection) * clothingMultiplier;
-
-        float spacing = (float) AppearanceState.get(glutes ? BUTTOCK_SEPARATION : CHEST_SEPARATION);
-        float horizontal = (name.endsWith("_left") ? -1F : 1F) * spacing / 16F;
-        float vertical = -(float) AppearanceState.get(
-                glutes ? BUTTOCK_POSITION : CHEST_POSITION) / 16F;
-
-        if (!glutes) {
-            // Physics is optional and render-only; garment overlays receive
-            // the exact same transformations as exposed body geometry.
-            horizontal += AnatomyMotion.lateralPixels() / 16F;
-            vertical -= AnatomyMotion.verticalPixels() / 16F;
-        }
-
-        renderScaled(part(shape, name, body), body, pose,
-                width, height, depth, horizontal, vertical,
-                curveOffset(glutes, depth), vertices, light, overlay,
-                red, green, blue, alpha);
-    }
-
-    /** Keep the front/back protrusion anchored at the adjusted torso surface. */
-    private static float curveOffset(boolean glutes, float volume) {
-        float torsoDepth = (float) AppearanceState.get(TORSO_DEPTH);
-        return (glutes ? 1F : -1F) * (2F * torsoDepth - 2F * volume) / 16F;
-    }
-
     private void garmentCurve(Appearance.Shape shape, boolean glutes, float volume,
                               PoseStack pose, MultiBufferSource buffers, int light, String texture) {
         ResourceLocation location = new ResourceLocation(ID, "textures/" + texture);
-        for (String name : anatomyNames(glutes)) {
-            renderAnatomy(shape, name, glutes, volume, 1.04F, pose,
-                    buffers.getBuffer(RenderType.entityCutoutNoCull(location)), light,
-                    OverlayTexture.NO_OVERLAY, 1F, 1F, 1F, 1F);
-        }
+        AnatomySurface.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(location)),
+                body, glutes, true, light, OverlayTexture.NO_OVERLAY,
+                1F, 1F, 1F, 1F);
     }
+
 }

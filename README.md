@@ -98,3 +98,21 @@ Reference: [Female Gender Mod](https://github.com/FemaleGenderMod/FemaleGenderMo
 - Optional physics and garment fitting are an alpha prototype. Character animation, armor clipping, UV stretching, renderer conflicts, and movement feel should be checked in a running client.
 
 Reference mod specifically does not aim to remodel vanilla hips or buttocks; those features are designed independently here.
+
+
+## v0.5: procedural surface geometry inspired by Jenny / Fapcraft
+
+Research references:
+- [Jenny Fabric port](https://github.com/Nomadvorga/jenny-mod): source geometry `src/main/resources/assets/sexmod/geo/jenny/jennynude.geo.json` and `jennydressed.geo.json`.
+- [Blockbench rigging guide](https://github.com/bernie-g/geckolib/wiki/Making-Your-Models-%28Blockbench%29): how planes, cubes, groups, bone pivots and rotations work.
+
+Inspection showed that Jenny's model uses rotated *zero-thickness UV planes*, grouped into independent anatomy bones rather than one rectangular solid (the inspected port contains 7 and 6 geometry primitives in its nude left and right breast bones, respectively; the clothed preview groups contain 13 each). ModularPlayer does **not** import or redistribute these assets.
+
+Our independent implementation is `src/main/java/com/susu609/modularplayer/client/model/AnatomySurface.java`:
+- Two separate convex patches per body group, drawn with **5 concentric rings × 16 angular segments** using Minecraft's `VertexConsumer`. This is not an exact match to Jenny.
+- Procedural depth profile and UVs are mapped to the front/back Steve 64×64 torso atlas.
+- The same mesh function runs for bare-skin and separate clothing textures, with an outward shell offset.
+- Chest controls: size, projection, vertical position, separation and optional damped lateral/vertical motion. Buttocks share geometry math but do not get the soft motion yet.
+- No GeckoLib dependency is added; vanilla player animations are preserved. No hitbox or first-person changes.
+
+**Known limitations:** surface geometry is still an alpha approximation, uses the torso UV atlas rather than custom material layouts, and must be visually tested from all angles. Continuous garment fitting, custom clothing geometry, UV stretching, armor layers, first-person hands and Blockbench model import remain planned work. The geometry samples can be replaced by a JSON/Blockbench mesh provider in a future renderer module.

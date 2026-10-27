@@ -79,7 +79,7 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
         }
         renderScaled(part(shape, name, source), source, pose,
                 (float) AppearanceState.get(x), (float) AppearanceState.get(y),
-                (float) AppearanceState.get(z), offsetX,
+                (float) AppearanceState.get(z), offsetX, 0F,
                 vertices, light, overlay, red, green, blue, alpha);
     }
 
@@ -97,7 +97,7 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
                 : new String[]{"chest_left", "chest_right"}) {
             renderScaled(part(shape, name, body), body, pose,
                     width, height, Math.max(0.05F, volume), 0F,
-                    vertices, light, overlay, red, green, blue, alpha);
+                    curveOffset(glutes, volume), vertices, light, overlay, red, green, blue, alpha);
         }
     }
 
@@ -110,11 +110,11 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
 
     /** Scale a bone about its pivot, not about the global player origin. */
     private static void renderScaled(ModelPart target, ModelPart source, PoseStack pose,
-                                     float x, float y, float z, float offsetX,
+                                     float x, float y, float z, float offsetX, float offsetZ,
                                      VertexConsumer vertices, int light, int overlay,
                                      float red, float green, float blue, float alpha) {
         pose.pushPose();
-        pose.translate(offsetX, 0, 0);
+        pose.translate(offsetX, 0, offsetZ);
         pose.translate(source.x / 16F, source.y / 16F, source.z / 16F);
         pose.scale(x, y, z);
         pose.translate(-source.x / 16F, -source.y / 16F, -source.z / 16F);
@@ -183,9 +183,15 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
         ResourceLocation location = new ResourceLocation(ID, "textures/" + texture);
         renderScaled(part(shape, name, source), source, pose,
                 (float) AppearanceState.get(x), (float) AppearanceState.get(y),
-                (float) AppearanceState.get(z), hip,
+                (float) AppearanceState.get(z), hip, 0F,
                 buffers.getBuffer(RenderType.entityCutoutNoCull(location)),
                 light, OverlayTexture.NO_OVERLAY, 1F, 1F, 1F, 1F);
+    }
+
+    /** Keep the front/back protrusion anchored at the adjusted torso surface. */
+    private static float curveOffset(boolean glutes, float volume) {
+        float torsoDepth = (float) AppearanceState.get(TORSO_DEPTH);
+        return (glutes ? 1F : -1F) * (2F * torsoDepth - 2F * volume) / 16F;
     }
 
     private void garmentCurve(Appearance.Shape shape, boolean glutes, float volume,
@@ -198,7 +204,7 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
                 : new String[]{"chest_left", "chest_right"}) {
             renderScaled(part(shape, name, body), body, pose, width, height,
                     Math.max(.05F, volume) * 1.04F, 0F,
-                    buffers.getBuffer(RenderType.entityCutoutNoCull(location)),
+                    curveOffset(glutes, volume * 1.04F), buffers.getBuffer(RenderType.entityCutoutNoCull(location)),
                     light, OverlayTexture.NO_OVERLAY, 1F, 1F, 1F, 1F);
         }
     }

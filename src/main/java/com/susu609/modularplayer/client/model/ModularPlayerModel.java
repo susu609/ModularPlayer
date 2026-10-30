@@ -155,7 +155,10 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
             anchor.zRot = 0F;
             // Rotation is secondary: the existing spring still controls translation.
             anchor.zRot = com.susu609.modularplayer.client.AnatomyMotion.lateralPixels(false, side) * .035F;
+            // Scale around the anchor pivot, not the player origin.
+            pose.translate(anchor.x / 16F, anchor.y / 16F, anchor.z / 16F);
             pose.scale(width, height, depth);
+            pose.translate(-anchor.x / 16F, -anchor.y / 16F, -anchor.z / 16F);
             anchor.render(pose, vertices, light, overlay, red, green, blue, alpha);
             pose.popPose();
         }

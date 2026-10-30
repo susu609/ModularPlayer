@@ -1,9 +1,5 @@
 {
-  "key.categories.modularplayer": "Modular Player",
-  "key.modularplayer.editor": "Mở giao diện tùy chỉnh nhân vật",
-  "key.modularplayer.torso": "Đổi dáng thân",
-  "key.modularplayer.shirt": "Đổi áo",
-  "key.modularplayer.pants": "Đổi quần",
-  "key.modularplayer.boots": "Đổi giày",
-  "key.modularplayer.emote": "Đổi biểu cảm vẫy tay / lắc người / dừng"
+  "modularplayer.name": "Modular Player",
+  "modularplayer.gender.female": "Nữ",
+  "modularplayer.gender.male": "Nam"
 }

@@ -33,7 +33,7 @@ public enum BodyDimension {
     CHEST_POSITION(Group.CHEST, "Vertical offset", 0.0, -2.0, 2.0),
     CHEST_WIDTH(Group.CHEST, "Width", 1.0, 0.65, 1.55),
     CHEST_HEIGHT(Group.CHEST, "Height", 1.0, 0.70, 1.40),
-    CHEST_SWAY(Group.CHEST, "Soft motion", 0.0, 0.0, 1.0),
+    CHEST_SWAY(Group.CHEST, "Soft motion", 0.35, 0.0, 1.0),
     // Advanced controls: asymmetric size and spring tuning.
     CHEST_LEFT_SCALE(Group.CHEST, "Left size", 1.0, 0.65, 1.50),
     CHEST_RIGHT_SCALE(Group.CHEST, "Right size", 1.0, 0.65, 1.50),

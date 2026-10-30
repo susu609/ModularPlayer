@@ -218,7 +218,9 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
             }
             float breast = (float) AppearanceState.get(CHEST_VOLUME);
             if (breast > .001F && player.isModelPartShown(PlayerModelPart.JACKET)) {
-                garmentCurve(a.torso(), false, breast, pose, buffers, light, texture);
+                renderBreasts(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(
+                        new ResourceLocation(ID, "textures/" + texture))), light,
+                        OverlayTexture.NO_OVERLAY, 1F, 1F, 1F, 1F);
             }
         }
         if (a.bottom() == Appearance.Bottom.STEVE_PANTS) {

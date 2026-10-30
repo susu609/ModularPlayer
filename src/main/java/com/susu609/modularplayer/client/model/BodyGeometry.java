@@ -21,7 +21,28 @@ public final class BodyGeometry {
                 CubeListBuilder.create(), PartPose.ZERO);
         addShape(variants, "steve", slim, false);
         addShape(variants, "wide", slim, true);
+        addBreastRig(mesh.getRoot());
         return LayerDefinition.create(mesh, 64, 64);
+    }
+
+    /**
+     * Four Blockbench reference cubes, rebased to independent left/right pivots.
+     * Parent torso transform is applied during rendering; cubes are in body-local pixels.
+     * The anchor is a transform node, not a mesh, so size sliders scale the flesh only.
+     */
+    private static void addBreastRig(PartDefinition root) {
+        PartDefinition rig = root.addOrReplaceChild("mp_breasts",
+                CubeListBuilder.create(), PartPose.ZERO);
+        for (int side : new int[]{-1, 1}) {
+            String name = side < 0 ? "left" : "right";
+            float x = side * 2F;
+            PartDefinition anchor = rig.addOrReplaceChild(name + "_anchor",
+                    CubeListBuilder.create(), PartPose.offset(x, 2F, -2F));
+            anchor.addOrReplaceChild("base", CubeListBuilder.create().texOffs(16, 16)
+                    .addBox(-2F, -2F, -1F, 4F, 4F, 2F), PartPose.ZERO);
+            anchor.addOrReplaceChild("volume", CubeListBuilder.create().texOffs(16, 16)
+                    .addBox(-3F, -1F, -6F, 6F, 6F, 6F), PartPose.ZERO);
+        }
     }
 
     private static void addShape(PartDefinition parent, String id, boolean slim, boolean wide) {

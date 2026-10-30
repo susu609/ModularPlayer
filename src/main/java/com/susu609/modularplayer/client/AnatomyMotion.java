@@ -23,6 +23,7 @@ public final class AnatomyMotion {
     private static float previousYaw;
     private static boolean previousGround;
     private static boolean seeded;
+    private static float prevSide, oldSide, prevLift, oldLift, prevTwist, oldTwist;
 
     private AnatomyMotion() {}
 
@@ -56,18 +57,29 @@ public final class AnatomyMotion {
         float verticalAcceleration = (float) acceleration.y;
         float landing = grounded && !previousGround
                 ? Math.min(1F, (float) Math.abs(previousVelocity.y) * 2F) : 0F;
-        float shake = EmoteState.bodyShakeImpulse();
+        // Second derivative of the animated torso pose (discrete acceleration).
+        float side = EmoteState.torsoSway();
+        float lift = EmoteState.torsoLift();
+        float twist = EmoteState.torsoTwist();
+        float sideAccel = side - 2F * prevSide + oldSide;
+        float liftAccel = lift - 2F * prevLift + oldLift;
+        float twistAccel = twist - 2F * prevTwist + oldTwist;
+        oldSide = prevSide; prevSide = side;
+        oldLift = prevLift; prevLift = lift;
+        oldTwist = prevTwist; prevTwist = twist;
 
         simulate(CHEST,
                 (float) AppearanceState.get(BodyDimension.CHEST_SWAY),
                 (float) AppearanceState.get(BodyDimension.CHEST_FIRMNESS),
                 (float) AppearanceState.get(BodyDimension.CHEST_DAMPING),
-                horizontal, sideways, verticalAcceleration, yawDelta, landing, shake);
+                horizontal, sideways, verticalAcceleration, yawDelta, landing,
+                sideAccel, liftAccel, twistAccel);
         simulate(BUTTOCKS,
                 (float) AppearanceState.get(BodyDimension.BUTTOCK_SWAY),
                 (float) AppearanceState.get(BodyDimension.BUTTOCK_FIRMNESS),
                 (float) AppearanceState.get(BodyDimension.BUTTOCK_DAMPING),
-                horizontal, sideways, verticalAcceleration, yawDelta, landing, shake);
+                horizontal, sideways, verticalAcceleration, yawDelta, landing,
+                sideAccel, liftAccel, twistAccel);
 
         previousVelocity = velocity;
         previousYaw = yaw;
@@ -76,7 +88,7 @@ public final class AnatomyMotion {
 
     private static void simulate(int part, float amount, float stiffness, float damping,
                                  float forward, float strafe, float up, float turn,
-                                 float landing, float shake) {
+                                 float landing, float sideAccel, float liftAccel, float twistAccel) {
         if (amount < .0001F) {
             zero(part);
             return;
@@ -90,10 +102,10 @@ public final class AnatomyMotion {
             float direction = side == 0 ? -1F : 1F;
             float targetY = amount * sensitivity * (
                     -up * 2.8F + landing * .35F
-                    + shake * .35F * (part == CHEST ? 1F : .8F));
+                    + liftAccel * 12F * (part == CHEST ? 1F : .8F));
             float targetX = amount * sensitivity * (
                     -strafe * 2.4F - turn * .013F - forward * .45F
-                    + shake * .31F * direction);
+                    + sideAccel * 7F + twistAccel * 6F * direction);
             // Tiny left/right difference rather than completely robotic sync.
             float asymmetry = side == 0 ? 1F : .97F;
             targetY = clamp(targetY * asymmetry, -.72F, .72F);
@@ -137,5 +149,6 @@ public final class AnatomyMotion {
         previousYaw = 0F;
         previousGround = false;
         seeded = false;
+        prevSide = oldSide = prevLift = oldLift = prevTwist = oldTwist = 0F;
     }
 }

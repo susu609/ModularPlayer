@@ -66,7 +66,23 @@ public final class EmoteState {
                 (current.durationTicks() - elapsed) / 9F));
     }
 
-    /** Secondary-motion force from the active dance-like body shake. */
+    /** Channels matching the animated torso pose in ModularPlayerModel. */
+    public static float torsoSway() {
+        return playing(Emote.BODY_SHAKE)
+                ? (float) Math.sin(elapsed * .74F) * .14F * envelope() : 0F;
+    }
+
+    public static float torsoTwist() {
+        return playing(Emote.BODY_SHAKE)
+                ? (float) Math.sin(elapsed * .74F) * .18F * envelope() : 0F;
+    }
+
+    public static float torsoLift() {
+        return playing(Emote.BODY_SHAKE)
+                ? (float) Math.cos(elapsed * 1.48F) * .16F * envelope() : 0F;
+    }
+
+    /** Legacy emote force, kept for compatibility. */
     public static float bodyShakeImpulse() {
         if (!playing(Emote.BODY_SHAKE)) return 0F;
         return (float) Math.sin(elapsed * 1.0F) * envelope();

@@ -25,11 +25,16 @@ import static com.susu609.modularplayer.appearance.BodyDimension.*;
  */
 public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> {
     private final ModelPart shapes;
+    private final ModelPart leftBreast;
+    private final ModelPart rightBreast;
     private boolean active;
 
     public ModularPlayerModel(ModelPart root, boolean slim) {
         super(root, slim);
         this.shapes = root.getChild("hpm_variants");
+        ModelPart breasts = root.getChild("mp_breasts");
+        this.leftBreast = breasts.getChild("left_anchor");
+        this.rightBreast = breasts.getChild("right_anchor");
     }
 
     @Override
@@ -93,7 +98,7 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
 
         // Hide exposed skin protrusions where clothing is fitted over the shapes.
         if (a.top() == Appearance.Top.NONE) {
-            renderCurves(pose, vertices, light, overlay, false, red, green, blue, alpha);
+            renderBreasts(pose, vertices, light, overlay, red, green, blue, alpha);
         }
         if (a.bottom() == Appearance.Bottom.NONE) {
             renderCurves(pose, vertices, light, overlay, true, red, green, blue, alpha);
@@ -121,6 +126,39 @@ public final class ModularPlayerModel extends PlayerModel<AbstractClientPlayer> 
                 (float) AppearanceState.get(x), (float) AppearanceState.get(y),
                 (float) AppearanceState.get(z), offsetX, 0F, 0F,
                 vertices, light, overlay, red, green, blue, alpha);
+    }
+
+    /** Renders the four-cube breast rig with two independent animation springs. */
+    private void renderBreasts(PoseStack pose, VertexConsumer vertices, int light, int overlay,
+                               float red, float green, float blue, float alpha) {
+        float volume = (float) AppearanceState.get(CHEST_VOLUME);
+        if (volume <= .001F) return;
+        for (int side : new int[]{-1, 1}) {
+            ModelPart anchor = side < 0 ? leftBreast : rightBreast;
+            float sideScale = (float) AppearanceState.get(
+                    side < 0 ? CHEST_LEFT_SCALE : CHEST_RIGHT_SCALE);
+            float width = (float) AppearanceState.get(CHEST_WIDTH) * sideScale;
+            float height = (float) AppearanceState.get(CHEST_HEIGHT) * sideScale;
+            float depth = volume * sideScale;
+            pose.pushPose();
+            body.translateAndRotate(pose);
+            pose.translate(0, 0, -(float) AppearanceState.get(CHEST_SEPARATION) / 32F);
+            anchor.x = side * (2F * (float) AppearanceState.get(TORSO_WIDTH)
+                    + .5F * (float) AppearanceState.get(CHEST_SEPARATION))
+                    + com.susu609.modularplayer.client.AnatomyMotion.lateralPixels(false, side);
+            anchor.y = 2F - (float) AppearanceState.get(CHEST_POSITION)
+                    - (float) AppearanceState.get(CHEST_LIFT)
+                    - com.susu609.modularplayer.client.AnatomyMotion.verticalPixels(false, side);
+            anchor.z = -2F * (float) AppearanceState.get(TORSO_DEPTH);
+            anchor.xRot = 0F;
+            anchor.yRot = 0F;
+            anchor.zRot = 0F;
+            // Rotation is secondary: the existing spring still controls translation.
+            anchor.zRot = com.susu609.modularplayer.client.AnatomyMotion.lateralPixels(false, side) * .035F;
+            pose.scale(width, height, depth);
+            anchor.render(pose, vertices, light, overlay, red, green, blue, alpha);
+            pose.popPose();
+        }
     }
 
     private void renderCurves(PoseStack pose, VertexConsumer vertices, int light, int overlay,
